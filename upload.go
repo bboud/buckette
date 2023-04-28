@@ -17,7 +17,7 @@ func (f *FileServer) upload(rw http.ResponseWriter, req *http.Request) {
 	}
 	defer inFile.Close()
 
-	outFile, err := os.OpenFile(header.Filename+string(hash(header.Filename)), os.O_CREATE|os.O_RDWR, 0644)
+	outFile, err := os.OpenFile(header.Filename, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		log.Println(err)
 		return
