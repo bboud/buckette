@@ -36,30 +36,6 @@ const rejectStyle = {
 export default function StyledDropzone() {
   const [isUploading, setUploading] = useState(false)
 
-  const navigate = useNavigate()
-
-  const fileEndpoint = useMutation({
-    mutationFn: async (file: File) => {
-      const formData = new FormData()
-      formData.append('file', file)
-
-      const res = await fetch(import.meta.env.VITE_UPLOAD_ENDPOINT_URL, {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          Accept: 'application/json',
-        },
-      })
-
-      if (!res.ok) {
-        throw new Error(res.statusText)
-      }
-
-      return res.json()
-    },
-  })
-
   const onDrop = useCallback((acceptedFiles: File[]) => {
     acceptedFiles.forEach((file) => {
       const reader = new FileReader()
@@ -92,6 +68,28 @@ export default function StyledDropzone() {
     }),
     [isFocused, isDragAccept, isDragReject],
   )
+
+  const fileEndpoint = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData()
+
+      formData.append('file', acceptedFiles[0])
+
+      const res = await fetch('http://localhost:8080/upl', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        body: formData,
+      })
+
+      if (!res.ok) {
+        throw new Error(res.statusText)
+      }
+
+      return res.json()
+    },
+  })
 
   const acceptedFileItems = acceptedFiles.map((file) => (
     <li key={file.path}>
