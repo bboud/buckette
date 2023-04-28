@@ -12,7 +12,7 @@ import { ClerkProvider } from '@clerk/clerk-react'
 import TestRoute from './routes/test'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
-const clerkPubKey = import.meta.env.VITE_REACT_APP_CLERK_PUBLISHABLE_KEY
+const clerkPubKey = 'pk_test_ZXhwZXJ0LXdvcm0tMS5jbGVyay5hY2NvdW50cy5kZXYk'
 
 console.log(clerkPubKey)
 
