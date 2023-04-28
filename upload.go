@@ -31,7 +31,8 @@ func (f *FileServer) upload(rw http.ResponseWriter, req *http.Request) {
 
 	for {
 		n, err := io.ReadFull(reader, buffer[:cap(buffer)])
-		writer.Write(buffer[:n])
+		buffer = buffer[:n]
+		writer.Write(buffer)
 		if err == io.EOF {
 			break
 		}
