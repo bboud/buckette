@@ -73,12 +73,12 @@ export default function StyledDropzone() {
     mutationFn: async (file: File) => {
       const formData = new FormData()
 
-      formData.append('file', acceptedFiles[0].prototype, acceptedFiles[0].name)
+      formData.append('file', file)
 
       const res = await fetch('http://localhost:8080/upl', {
         method: 'POST',
         headers: {
-          'Content-Type': 'multipart/form-data',
+          'Content-Type': `multipart/form-data; boundary=${file.name}`,
         },
         body: formData,
       })
