@@ -36,18 +36,21 @@ const rejectStyle = {
 export default function StyledDropzone() {
   const [isUploading, setUploading] = useState(false)
 
+  const [fileData, setFileData] = useState<ArrayBuffer | null>(null)
+
   const onDrop = useCallback((acceptedFiles: File[]) => {
     acceptedFiles.forEach((file) => {
       const reader = new FileReader()
 
+      reader.onabort = () => console.log('file reading was aborted')
+      reader.onerror = () => console.log('file reading has failed')
       reader.onload = () => {
+        // Do whatever you want with the file contents
         const binaryStr = reader.result
-        console.log('ya')
-        console.log(binaryStr)
+        setFileData(binaryStr as ArrayBuffer)
       }
+      reader.readAsArrayBuffer(file)
     })
-
-    console.log(acceptedFiles)
   }, [])
 
   const {
@@ -73,12 +76,13 @@ export default function StyledDropzone() {
     mutationFn: async (file: File) => {
       const formData = new FormData()
 
-      formData.append('file', file)
+      // boundary is file.name
+      formData.append('file', new Blob([fileData as ArrayBuffer]), file.name)
 
       const res = await fetch('http://localhost:8080/upl', {
         method: 'POST',
         headers: {
-          'Content-Type': `multipart/form-data; boundary=${file.name}`,
+          'Content-Type': `multipart/form-data; boundary=bigtest`,
         },
         body: formData,
       })
