@@ -81,9 +81,7 @@ export default function StyledDropzone() {
 
       const res = await fetch('http://localhost:8080/upl', {
         method: 'POST',
-        headers: {
-          'Content-Type': `multipart/form-data; boundary=bigtest`,
-        },
+        mode: 'no-cors',
         body: formData,
       })
 
