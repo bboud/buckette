@@ -14,3 +14,14 @@ type FileStatus = {
   length: number
   url: string
 }
+
+type FileResponse = {
+  FileName: string
+  RecordHash: string
+  FileHash: string
+  Size: number
+  ContentType: string
+  Uploaded: string
+  UserUploaded: string
+  DownloadCount: number
+}

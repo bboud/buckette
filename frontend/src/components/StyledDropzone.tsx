@@ -131,24 +131,31 @@ export default function StyledDropzone() {
         //   body: formData,
         // })
 
-        const res = await axios.post('http://localhost:3030/upload', formData, {
-          onUploadProgress: (progressEvent) => {
-            setFileStatus((prev) => {
-              if (prev) {
-                prev[i].progress =
-                  (progressEvent.loaded / (progressEvent.total || 1)) * 100
-                return [...prev]
-              } else {
-                return []
-              }
-            })
+        const res = await axios.post<FileResponse>(
+          'http://localhost:8080/upl',
+          formData,
+          {
+            onUploadProgress: (progressEvent) => {
+              setFileStatus((prev) => {
+                if (prev) {
+                  prev[i].progress =
+                    (progressEvent.loaded / (progressEvent.total || 1)) * 100
+                  return [...prev]
+                } else {
+                  return []
+                }
+              })
+            },
           },
-        })
+        )
+
+        const data = res.data
 
         if (res.status === 200) {
           setFileStatus((prev) => {
             if (prev) {
               prev[i].status = 'success'
+              prev[i].url = data.RecordHash
               return [...prev]
             } else {
               return []

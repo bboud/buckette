@@ -89,7 +89,14 @@ export default function Root() {
                     className='dark:bg-zinc-200 rounded-lg bg-zinc-800 h-2'
                     style={fileSprings[i]}></a.div>
                 </a.div>
-                {f.status === 'success' && <p>Success!</p>}
+                {f.status === 'success' && (
+                  <p>
+                    Success!{' '}
+                    <a
+                      className='text-blue-500 hover:underline'
+                      href={f.url}></a>
+                  </p>
+                )}
               </div>
             ))}
         </div>
