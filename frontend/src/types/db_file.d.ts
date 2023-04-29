@@ -6,3 +6,11 @@ type FileDB = {
   UserUploaded: string
   DownloadCount: number
 }
+
+type FileStatus = {
+  name: string
+  status: string
+  progress: number
+  length: number
+  url: string
+}

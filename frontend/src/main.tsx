@@ -5,7 +5,7 @@ import { dark } from '@clerk/themes'
 
 import './index.css'
 
-import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import { createHashRouter, RouterProvider } from 'react-router-dom'
 import Root from './routes/root'
 import Upload from './routes/upload'
 import { ClerkProvider } from '@clerk/clerk-react'
@@ -18,7 +18,7 @@ console.log(clerkPubKey)
 
 const queryClient = new QueryClient()
 
-const router = createBrowserRouter([
+const router = createHashRouter([
   {
     path: '/',
     element: <Root />,

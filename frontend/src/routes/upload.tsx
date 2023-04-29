@@ -25,11 +25,6 @@ function Upload() {
     <a.div
       style={uploadSpring}
       className='absolute z-10 bg-zinc-900/20 backdrop-blur-sm w-full h-full'>
-      {!isSignedIn && (
-        <div className='w-full h-full flex flex-col justify-center items-center'>
-          <SignIn afterSignInUrl={'/upload'} />
-        </div>
-      )}
       {isSignedIn && (
         <div className='w-full h-full flex flex-col justify-center items-center'>
           <StyledDropzone />
