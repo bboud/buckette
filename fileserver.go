@@ -1,111 +1,89 @@
 package main
 
 import (
-	"crypto/sha256"
-	"encoding/json"
-	"io"
+	"crypto/rand"
+	"encoding/hex"
 	"log"
-	"net/http"
 	"os"
-	"time"
 )
 
-const contentFolder = "./disk/"
-
-// const dbName = "db.gob"
-
-func hash(fileName string) []byte {
-	hash := sha256.New()
-	f, err := os.Open(contentFolder + fileName)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
-
-	if _, err = io.Copy(hash, f); err != nil {
-		log.Fatal(err)
-	}
-
-	return hash.Sum(nil)
-}
-
-type File struct {
-	FileName      string
-	UUID          []byte
-	Size          int64
-	Uploaded      time.Time
-	UserUploaded  string
-	DownloadCount int
+type FileServerRequest struct {
+	file     string
+	response chan *File
+	err      error
 }
 
 type FileServer struct {
-	files         []File
-	addChannel    chan *File
-	deleteChannel chan *File
+	Files     map[string]File
+	QueueSize int
+	newFile   chan *File
+	request   chan *FileServerRequest
 }
 
-func NewFileServer() *FileServer {
-	fs := &FileServer{
-		addChannel:    make(chan *File, 10),
-		deleteChannel: make(chan *File, 10),
+func newFileServer() *FileServer {
+	return &FileServer{
+		QueueSize: 0,
+		newFile:   make(chan *File, 5),
+		request:   make(chan *FileServerRequest),
+		Files:     make(map[string]File),
 	}
-
-	fs.addChannel <- &File{
-		FileName: "hello.txt",
-		UUID:     hash("hello.txt"),
-		Uploaded: time.Now(),
-	}
-
-	fs.addChannel <- &File{
-		FileName: "what.txt",
-		UUID:     hash("what.txt"),
-		Uploaded: time.Now(),
-	}
-
-	return fs
 }
 
-func (f *FileServer) Find(value string) ([]File, []int) {
-	var files []File
-	var indicies []int
+func (fs *FileServer) start() {
 
-	for k, file := range f.files {
-		if file.FileName == value || string(file.UUID) == value {
-			files = append(files, file)
-			indicies = append(indicies, k)
-		}
-	}
-
-	return files, indicies
-}
-
-func (f *FileServer) ListFiles(rw http.ResponseWriter, req *http.Request) {
-	data, err := json.Marshal(f.files)
+	homedir, err := os.UserHomeDir()
 	if err != nil {
-		rw.WriteHeader(500)
-		rw.Write([]byte(err.Error()))
+		log.Fatal(err)
 	}
 
-	_, err = io.WriteString(rw, string(data))
+	_, exists := os.Stat(homedir + FileStoreDir)
+	if os.IsNotExist(exists) {
+		err = os.MkdirAll(homedir+FileStoreDir, 0755)
+	}
+
+	_, exists = os.Stat(homedir + RecordStoreDir)
+	if os.IsNotExist(exists) {
+		err = os.MkdirAll(homedir+RecordStoreDir, 0755)
+	}
+
+	_, exists = os.Stat(homedir + TmpDir)
+	if os.IsNotExist(exists) {
+		err = os.MkdirAll(homedir+TmpDir, 0755)
+	}
+
 	if err != nil {
-		log.Println(err)
+		log.Fatal("Cannot create database directories")
+	}
+
+	go fs.handleNewFiles()
+	//go fs.handleRequests()
+
+	// Block function exit
+	select {}
+}
+
+func (fs *FileServer) push(f *File) {
+	fs.QueueSize += 1
+	fs.newFile <- f
+}
+
+func (fs *FileServer) handleNewFiles() {
+	for f := range fs.newFile {
+		fs.Files[f.RecordHash] = *f
+		fs.QueueSize -= 1
 	}
 }
 
-func (f *FileServer) Start() {
-	// Control the addition and removal of files to a channel
-	go func() {
-		for {
-			select {
-			case add := <-f.addChannel:
-				f.files = append(f.files, *add)
+func (fs *FileServer) generateRecord(length int) string {
+	b := make([]byte, length)
+	if _, err := rand.Read(b); err != nil {
+		return ""
+	}
 
-			case delete := <-f.deleteChannel:
-				_, toRemove := f.Find(string(delete.UUID))
-				for _, v := range toRemove {
-					f.files = append(f.files[:v], f.files[v+1:]...)
-				}
-			}
-		}
-	}()
+	hash := hex.EncodeToString(b)
+	_, exist := fs.Files[hash]
+	for exist {
+		_, exist = fs.Files[hash]
+	}
+	return hash
 }
