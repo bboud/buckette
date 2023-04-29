@@ -15,7 +15,6 @@ import (
 // }
 
 func (fs *FileServer) upload(rw http.ResponseWriter, req *http.Request) {
-
 	multipartReader, err := req.MultipartReader()
 	if err != nil {
 		log.Printf("ERROR: %v | Called by: %s", err, "MultipartReader")
@@ -39,12 +38,14 @@ func (fs *FileServer) upload(rw http.ResponseWriter, req *http.Request) {
 				DownloadCount: 0,
 			}
 
-			if err = f.Push(p); err != nil {
-				log.Fatal(err)
+			response, err := f.Push(p)
+			if err != nil {
+				log.Println(err)
 			}
+			rw.WriteHeader(200)
+			rw.Write(response)
 
 			fs.push(f)
 		}
 	}
-	rw.WriteHeader(200)
 }

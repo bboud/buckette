@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 )
@@ -58,7 +57,6 @@ func (fs *FileServer) start() {
 func (fs *FileServer) push(f *File) {
 	fs.QueueSize += 1
 	fs.newFile <- f
-	fmt.Println(fs.QueueSize)
 }
 
 func (fs *FileServer) handleNewFiles() {
