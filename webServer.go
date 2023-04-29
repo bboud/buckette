@@ -6,15 +6,9 @@ import (
 )
 
 func startServer() {
-	fileServer := NewFileServer()
-	fileServer.Start()
-
-	//http.Handle("/", http.FileServer(http.Dir("./frontend/dist")))
 	http.Handle("/", http.FileServer(http.Dir("./html")))
-	http.Handle("/fs", http.FileServer(http.Dir("./serve")))
-	http.HandleFunc("/download/", fileServer.download)
-	http.HandleFunc("/upl", fileServer.upload)
-	http.HandleFunc("/ls", fileServer.ListFiles)
+	http.HandleFunc("/download/", download)
+	http.HandleFunc("/upl", upload)
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
