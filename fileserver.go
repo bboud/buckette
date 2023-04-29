@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const contentFolder = "./serve/"
+const contentFolder = "./disk/"
 
 // const dbName = "db.gob"
 
