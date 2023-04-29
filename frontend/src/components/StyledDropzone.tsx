@@ -36,7 +36,7 @@ const rejectStyle = {
 export default function StyledDropzone() {
   const [isUploading, setUploading] = useState(false)
 
-  const [fileData, setFileData] = useState<ArrayBuffer | null>(null)
+  const [fileData, setFileData] = useState<ArrayBuffer[]>()
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     acceptedFiles.forEach((file) => {
@@ -45,9 +45,14 @@ export default function StyledDropzone() {
       reader.onabort = () => console.log('file reading was aborted')
       reader.onerror = () => console.log('file reading has failed')
       reader.onload = () => {
-        // Do whatever you want with the file contents
-        const binaryStr = reader.result
-        setFileData(binaryStr as ArrayBuffer)
+        const binaryStr = reader.result as ArrayBuffer
+        setFileData((prev) => {
+          if (prev) {
+            return [...prev, binaryStr]
+          } else {
+            return [binaryStr]
+          }
+        })
       }
       reader.readAsArrayBuffer(file)
     })
@@ -73,11 +78,19 @@ export default function StyledDropzone() {
   )
 
   const fileEndpoint = useMutation({
-    mutationFn: async (file: File) => {
+    mutationFn: async (file: File[]) => {
       const formData = new FormData()
 
       // boundary is file.name
-      formData.append('file', new Blob([fileData as ArrayBuffer]), file.name)
+      file.forEach((f, i) => {
+        if (fileData) {
+          formData.append(
+            'file',
+            new Blob([fileData[i]], { type: f.type }),
+            f.name,
+          )
+        }
+      })
 
       const res = await fetch('http://localhost:8080/upl', {
         method: 'POST',
@@ -130,7 +143,7 @@ export default function StyledDropzone() {
           className='p-2 rounded-lg top-4 relative bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 transition-colors'
           onClick={() => {
             setUploading(true)
-            fileEndpoint.mutate(acceptedFiles[0])
+            fileEndpoint.mutate(acceptedFiles)
           }}>
           Upload
         </button>
