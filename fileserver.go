@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"log"
 	"os"
 )
@@ -12,7 +14,7 @@ type FileServerRequest struct {
 }
 
 type FileServer struct {
-	Files     []File
+	Files     map[string]File
 	QueueSize int
 	newFile   chan *File
 	request   chan *FileServerRequest
@@ -23,6 +25,7 @@ func newFileServer() *FileServer {
 		QueueSize: 0,
 		newFile:   make(chan *File, 5),
 		request:   make(chan *FileServerRequest),
+		Files:     make(map[string]File),
 	}
 }
 
@@ -61,7 +64,21 @@ func (fs *FileServer) push(f *File) {
 
 func (fs *FileServer) handleNewFiles() {
 	for f := range fs.newFile {
-		fs.Files = append(fs.Files, *f)
+		fs.Files[f.RecordHash] = *f
 		fs.QueueSize -= 1
 	}
+}
+
+func (fs *FileServer) generateRecord(length int) string {
+	b := make([]byte, length)
+	if _, err := rand.Read(b); err != nil {
+		return ""
+	}
+
+	hash := hex.EncodeToString(b)
+	_, exist := fs.Files[hash]
+	for exist {
+		_, exist = fs.Files[hash]
+	}
+	return hash
 }

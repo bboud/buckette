@@ -38,7 +38,7 @@ func (fs *FileServer) upload(rw http.ResponseWriter, req *http.Request) {
 				DownloadCount: 0,
 			}
 
-			response, err := f.Push(p)
+			response, err := f.Push(p, fs.generateRecord(8))
 			if err != nil {
 				log.Println(err)
 			}
