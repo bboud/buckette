@@ -1,14 +1,33 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 )
 
-type FileServer struct {
+type FileServerRequest struct {
+	file     string
+	response chan *File
+	err      error
 }
 
-func initFileServer() {
+type FileServer struct {
+	Files     []File
+	QueueSize int
+	newFile   chan *File
+	request   chan *FileServerRequest
+}
+
+func newFileServer() *FileServer {
+	return &FileServer{
+		QueueSize: 0,
+		newFile:   make(chan *File, 5),
+		request:   make(chan *FileServerRequest),
+	}
+}
+
+func (fs *FileServer) start() {
 	var err error
 	_, exists := os.Stat(FileStoreDir)
 	if os.IsNotExist(exists) {
@@ -27,5 +46,24 @@ func initFileServer() {
 
 	if err != nil {
 		log.Fatal("Cannot create database directories")
+	}
+
+	go fs.handleNewFiles()
+	//go fs.handleRequests()
+
+	// Block function exit
+	select {}
+}
+
+func (fs *FileServer) push(f *File) {
+	fs.QueueSize += 1
+	fs.newFile <- f
+	fmt.Println(fs.QueueSize)
+}
+
+func (fs *FileServer) handleNewFiles() {
+	for f := range fs.newFile {
+		fs.Files = append(fs.Files, *f)
+		fs.QueueSize -= 1
 	}
 }
