@@ -1,55 +1,67 @@
 package main
 
 import (
-	"bufio"
+	"fmt"
 	"io"
 	"log"
+	"mime"
+	"mime/multipart"
 	"net/http"
-	"os"
-	"time"
+	"strings"
 )
 
 func (f *FileServer) upload(rw http.ResponseWriter, req *http.Request) {
-	inFile, header, err := req.FormFile("file")
-	if err == http.ErrNotMultipart || err != nil {
-		log.Println(err)
-		return
-	}
-	defer inFile.Close()
-
-	outFile, err := os.OpenFile(header.Filename, os.O_CREATE|os.O_RDWR, 0644)
+	mediaType, params, err := mime.ParseMediaType(req.Header.Get("Content-Type"))
 	if err != nil {
-		log.Println(err)
-		return
+		log.Fatal(err)
 	}
-	defer outFile.Close()
-
-	stride := 4098
-	reader := bufio.NewReader(inFile)
-	writer := bufio.NewWriter(outFile)
-	buffer := make([]byte, 0, stride)
-
-	for {
-		n, err := io.ReadFull(reader, buffer[:cap(buffer)])
-		buffer = buffer[:n]
-		writer.Write(buffer)
-		if err == io.EOF {
-			break
+	if strings.HasPrefix(mediaType, "multipart/") {
+		mr := multipart.NewReader(req.Body, params["boundary"])
+		for {
+			p, err := mr.NextPart()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Printf("ERROR: %v | Called by: %s", err, "NextPart")
+				break
+			}
+			slurp, err := io.ReadAll(p)
+			if err != nil {
+				log.Printf("ERROR: %v | Called by: %s", err, "ReadAll(Slurp)")
+				break
+			}
+			fmt.Printf("#####Header#####\n %s \n\n", p.Header)
+			fmt.Printf("#####Part#####\n %s \n\n", slurp)
 		}
-		if err == io.ErrUnexpectedEOF {
-			log.Fatal(err)
-		}
 	}
 
-	filename := header.Filename
+	// outFile, err := os.OpenFile("mine.txt", os.O_CREATE|os.O_RDWR, 0644)
+	// if err != nil {
+	// 	log.Printf("ERROR: %v | Called by: %s", err, "OpenFile")
+	// 	return
+	// }
+	// defer outFile.Close()
 
-	file := File{
-		FileName:      filename,
-		UUID:          hash(filename),
-		Size:          header.Size,
-		Uploaded:      time.Now(),
-		DownloadCount: 0,
-	}
+	// //stride := 4098
+	// content, err := ioutil.ReadAll(req.Body)
+	// if err != nil {
+	// 	log.Printf("ERROR: %v | Called by: %s", err, "ReadAll")
+	// }
+	// defer req.Body.Close()
 
-	f.addChannel <- &file
+	// writer := bufio.NewWriter(outFile)
+	// writer.Write(content)
+
+	// filename := "test"
+
+	// file := File{
+	// 	FileName:      filename,
+	// 	UUID:          hash(filename),
+	// 	Size:          req.ContentLength,
+	// 	Uploaded:      time.Now(),
+	// 	DownloadCount: 0,
+	// }
+
+	// f.addChannel <- &file
 }
