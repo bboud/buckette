@@ -30,20 +30,25 @@ func newFileServer() *FileServer {
 }
 
 func (fs *FileServer) start() {
-	var err error
-	_, exists := os.Stat(FileStoreDir)
-	if os.IsNotExist(exists) {
-		err = os.MkdirAll(FileStoreDir, 0755)
+
+	homedir, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	_, exists = os.Stat(RecordStoreDir)
+	_, exists := os.Stat(homedir + FileStoreDir)
 	if os.IsNotExist(exists) {
-		err = os.MkdirAll(RecordStoreDir, 0755)
+		err = os.MkdirAll(homedir+FileStoreDir, 0755)
 	}
 
-	_, exists = os.Stat(TmpDir)
+	_, exists = os.Stat(homedir + RecordStoreDir)
 	if os.IsNotExist(exists) {
-		err = os.MkdirAll(TmpDir, 0755)
+		err = os.MkdirAll(homedir+RecordStoreDir, 0755)
+	}
+
+	_, exists = os.Stat(homedir + TmpDir)
+	if os.IsNotExist(exists) {
+		err = os.MkdirAll(homedir+TmpDir, 0755)
 	}
 
 	if err != nil {
