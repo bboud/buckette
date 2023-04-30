@@ -46,7 +46,7 @@ const rejectStyle = {
 export default function StyledDropzone() {
   const [isUploading, setUploading] = useState(false)
 
-  const [fileData, setFileData] = useState<ArrayBuffer[]>()
+  const [fileData, setFileData] = useState<(string | ArrayBuffer)[]>()
 
   const [fileStatus, setFileStatus] = useAtom(fileStatusAtom)
 
@@ -85,14 +85,16 @@ export default function StyledDropzone() {
       reader.onerror = (e) => console.log(e)
       reader.onload = () => {
         console.log('hi')
-        const binaryStr = reader.result as ArrayBuffer
-        setFileData((prev) => {
-          if (prev) {
-            return [...prev, binaryStr]
-          } else {
-            return [binaryStr]
-          }
-        })
+        const binaryStr = reader.result
+        if (binaryStr) {
+          setFileData((prev) => {
+            if (prev) {
+              return [...prev, binaryStr]
+            } else {
+              return [binaryStr]
+            }
+          })
+        }
       }
       reader.readAsArrayBuffer(file)
     })
@@ -119,8 +121,9 @@ export default function StyledDropzone() {
 
   const fileEndpoint = useMutation({
     mutationFn: async (file: File[]) => {
-      // boundary is file.name
-      file.forEach(async (f, i) => {
+      // enumerate through files
+      for (const f of file) {
+        const i = file.indexOf(f)
         const formData = new FormData()
         if (fileData) {
           formData.append(
@@ -136,7 +139,7 @@ export default function StyledDropzone() {
 
           const digest = await window.crypto.subtle.digest(
             'SHA-256',
-            fileData[i],
+            fileData[i] as ArrayBuffer,
           )
 
           const hashHex = Array.from(new Uint8Array(digest))
@@ -169,6 +172,8 @@ export default function StyledDropzone() {
                   'File-Name': f.name,
                   'File-Type': f.type,
                 },
+
+                maxRate: [10, 10],
 
                 maxRedirects: 0,
               },
@@ -213,7 +218,11 @@ export default function StyledDropzone() {
             })
           }
         }
-      })
+      }
+
+      // boundary is file.name
+      // file.forEach(async (f, i) => {
+      // })
     },
   })
 

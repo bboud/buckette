@@ -40,11 +40,12 @@ export default function Root() {
       fileStatus.forEach((f, i) => {
         if (f.status === 'success') {
           setTimeout(() => {
-            setProgressSprings.start((i) => ({
-              opacity: 0,
-              onRest: (i, ctrl) => {
+            setProgressSprings.start((i, a) => ({
+              opacity: fileStatus[i].status === 'success' ? 0 : 1,
+              onRest: (_, ctrl) => {
                 ctrl.start({
-                  display: 'none',
+                  display:
+                    fileStatus[i].status === 'success' ? 'none' : 'block',
                 })
               },
             }))
