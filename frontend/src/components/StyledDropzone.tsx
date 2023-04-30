@@ -146,6 +146,11 @@ export default function StyledDropzone() {
                 }
               })
             },
+            headers: {
+              'Content-Length': f.size,
+            },
+
+            maxRedirects: 0,
           },
         )
 
