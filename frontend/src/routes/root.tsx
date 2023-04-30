@@ -9,30 +9,13 @@ import { animated as a, useSprings } from '@react-spring/web'
 import { useAtom } from 'jotai'
 import { useEffect } from 'react'
 
-const test_data: FileDB[] = [
-  {
-    FileName: 'test',
-    UUID: 'blah',
-    Size: 100,
-    Uploaded: new Date().toISOString(),
-    UserUploaded: '',
-    DownloadCount: 0,
-  },
-  {
-    FileName: 'test2',
-    UUID: 'blah2',
-    Size: 100,
-    Uploaded: new Date().toISOString(),
-    UserUploaded: '',
-    DownloadCount: 0,
-  },
-]
-
 export default function Root() {
   const { isSignedIn } = useUser()
   const { signOut } = useClerk()
   const location = useLocation()
   const navigate = useNavigate()
+
+  console.log(location.pathname)
 
   const [fileStatus, setFileStatus] = useAtom(fileStatusAtom)
 
@@ -73,33 +56,35 @@ export default function Root() {
 
   return (
     <>
-      <div className='w-full h-full absolute text-zinc-900 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-900'>
-        <div className='absolute z-50 w-full top-5 grid space-y-2 justify-center'>
-          {fileStatus &&
-            fileStatus.map((f, i) => (
-              <div
-                className='bg-zinc-200/75 rounded-lg dark:bg-zinc-800/75 p-2 w-96'
-                key={i}>
+      <div className='absolute z-50 w-full top-5 grid space-y-2 justify-center'>
+        {fileStatus &&
+          fileStatus.map((f, i) => (
+            <div
+              className='bg-zinc-200/75 rounded-lg dark:bg-zinc-800/75 p-2 w-96'
+              key={i}>
+              <p>
+                <b>{f.name}</b>
+              </p>
+              <a.div style={progressSprings[i]}>
+                <CountUp end={f.progress} decimals={2} suffix={'%'} />
+                <a.div
+                  className='dark:bg-zinc-200 rounded-lg bg-zinc-800 h-2'
+                  style={fileSprings[i]}></a.div>
+              </a.div>
+              {f.status === 'success' && (
                 <p>
-                  <b>{f.name}</b>
+                  Success!{' '}
+                  <a className='text-blue-500 hover:underline' href={f.url}></a>
                 </p>
-                <a.div style={progressSprings[i]}>
-                  <CountUp end={f.progress} decimals={2} suffix={'%'} />
-                  <a.div
-                    className='dark:bg-zinc-200 rounded-lg bg-zinc-800 h-2'
-                    style={fileSprings[i]}></a.div>
-                </a.div>
-                {f.status === 'success' && (
-                  <p>
-                    Success!{' '}
-                    <a
-                      className='text-blue-500 hover:underline'
-                      href={f.url}></a>
-                  </p>
-                )}
-              </div>
-            ))}
-        </div>
+              )}
+              {f.error && <p className='text-red-500'>{f.error}</p>}
+            </div>
+          ))}
+      </div>
+      <div
+        className={`w-full h-full ${
+          location.pathname !== '/' ? 'fixed' : 'absolute'
+        } text-zinc-900 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-900`}>
         <Outlet />
         <div className='m-4 grid justify-start grid-flow-col space-x-4'>
           {isSignedIn && (
@@ -133,25 +118,26 @@ export default function Root() {
                 Size
               </th>
             </tr>
-            {location.pathname !== '/' && (
-              <tr className='hover:bg-zinc-200 transition-colors rounded-lg hover:dark:bg-zinc-800'>
-                <td>
-                  <Link
-                    onClick={(e) => {
-                      if (location.pathname.split('/').length === 2) {
-                        e.preventDefault()
-                        navigate('/')
-                      }
-                    }}
-                    to={location.pathname.split('/').slice(0, -1).join('/')}>
-                    ..
-                  </Link>
-                </td>
-                <td></td>
-                <td></td>
-              </tr>
-            )}
-            {test_data.map((file) => (
+            {location.pathname.includes('/#/upload') &&
+              location.pathname !== '/' && (
+                <tr className='hover:bg-zinc-200 transition-colors rounded-lg hover:dark:bg-zinc-800'>
+                  <td>
+                    <Link
+                      onClick={(e) => {
+                        if (location.pathname.split('/').length === 2) {
+                          e.preventDefault()
+                          navigate('/')
+                        }
+                      }}
+                      to={location.pathname.split('/').slice(0, -1).join('/')}>
+                      ..
+                    </Link>
+                  </td>
+                  <td></td>
+                  <td></td>
+                </tr>
+              )}
+            {/* {test_data.map((file) => (
               <tr
                 key={file.FileName}
                 className='hover:bg-zinc-200 transition-colors rounded-lg hover:dark:bg-zinc-800'>
@@ -161,7 +147,7 @@ export default function Root() {
                   <CountUp end={file.Size} decimals={2} /> MB
                 </td>
               </tr>
-            ))}
+            ))} */}
           </tbody>
         </table>
       </div>

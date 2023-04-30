@@ -1,6 +1,7 @@
 type FileDB = {
   FileName: string
-  UUID: string
+  UUID: ArrayBuffer
+  URL: string
   Size: number
   Uploaded: string
   UserUploaded: string
@@ -13,15 +14,11 @@ type FileStatus = {
   progress: number
   length: number
   url: string
+  error?: string
 }
 
 type FileResponse = {
-  FileName: string
-  RecordHash: string
-  FileHash: string
-  Size: number
-  ContentType: string
-  Uploaded: string
-  UserUploaded: string
-  DownloadCount: number
+  URL: string
+  Duplicate: boolean
+  File: FileDB
 }

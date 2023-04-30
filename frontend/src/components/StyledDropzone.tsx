@@ -10,6 +10,9 @@ import { fileStatusAtom } from '../utils/atoms'
 
 import { animated as a, useSpring } from '@react-spring/web'
 
+import { Buffer } from 'buffer'
+globalThis.Buffer = Buffer
+
 import { useAtom } from 'jotai'
 
 const baseStyle: DropzoneRootProps = {
@@ -124,48 +127,85 @@ export default function StyledDropzone() {
             new Blob([fileData[i]], { type: f.type }),
             f.name,
           )
-        }
-        // const res = await fetch('http://localhost:8080/upl', {
-        //   method: 'POST',
-        //   mode: 'no-cors',
-        //   body: formData,
-        // })
+          // const res = await fetch('http://localhost:8080/upl', {
+          //   method: 'POST',
+          //   mode: 'no-cors',
+          //   body: formData,
+          // })
 
-        const res = await axios.post<FileResponse>(
-          'http://localhost:8080/upl',
-          formData,
-          {
-            onUploadProgress: (progressEvent) => {
+          const digest = await window.crypto.subtle.digest(
+            'SHA-256',
+            fileData[i],
+          )
+
+          const hashHex = Array.from(new Uint8Array(digest))
+            .map((b) => b.toString(16).padStart(2, '0'))
+            .join('')
+
+          const hashBase64 = Buffer.from(hashHex).toString('base64')
+
+          try {
+            const res = await axios.post<FileResponse>(
+              'http://localhost:8080/upl',
+              formData,
+              {
+                onUploadProgress: (progressEvent) => {
+                  setFileStatus((prev) => {
+                    if (prev) {
+                      prev[i].progress =
+                        (progressEvent.loaded / (progressEvent.total || 1)) *
+                        100
+                      return [...prev]
+                    } else {
+                      return []
+                    }
+                  })
+                },
+
+                headers: {
+                  'File-Hash': hashBase64,
+                  Size: f.size,
+                },
+
+                maxRedirects: 0,
+              },
+            )
+
+            const data = res.data
+
+            if (res.status === 200) {
               setFileStatus((prev) => {
                 if (prev) {
-                  prev[i].progress =
-                    (progressEvent.loaded / (progressEvent.total || 1)) * 100
+                  prev[i].status = 'success'
+                  prev[i].url = data.URL
+                  data.Duplicate && (prev[i].error = 'File is a duplicate!')
                   return [...prev]
                 } else {
                   return []
                 }
               })
-            },
-            headers: {
-              'Content-Length': f.size,
-            },
-
-            maxRedirects: 0,
-          },
-        )
-
-        const data = res.data
-
-        if (res.status === 200) {
-          setFileStatus((prev) => {
-            if (prev) {
-              prev[i].status = 'success'
-              prev[i].url = data.RecordHash
-              return [...prev]
             } else {
-              return []
+              setFileStatus((prev) => {
+                if (prev) {
+                  prev[i].status = 'error'
+                  prev[i].error = res.statusText
+                  return [...prev]
+                } else {
+                  return []
+                }
+              })
             }
-          })
+          } catch (e) {
+            setFileStatus((prev) => {
+              if (prev) {
+                prev[i].status = 'error'
+                prev[i].error = `an error has occurred: ${e}`
+                return [...prev]
+              } else {
+                return []
+              }
+            })
+          }
         }
       })
     },
