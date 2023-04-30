@@ -14,7 +14,7 @@ const MaxRecords = 100000
 
 type ErrFileExists struct {
 	ErrorString   string
-	DuplicateFile string
+	DuplicateFile [32]byte
 }
 
 func (err *ErrFileExists) Error() string {
@@ -146,7 +146,7 @@ func (fServer *FileServer) exists(fileHash []byte) *ErrFileExists {
 		if bytes.Equal(file.UUID[:], fileHash) {
 			return &ErrFileExists{
 				ErrorString:   file.FileName + " already exists in the cache",
-				DuplicateFile: file.tmpHash,
+				DuplicateFile: file.UUID,
 			}
 		}
 	}
@@ -183,11 +183,11 @@ func (fServer *FileServer) exists(fileHash []byte) *ErrFileExists {
 
 			returnFile.uuidName = encodeToString(returnFile.UUID[:])
 			// Add it to cache
-			fServer.newFile <- returnFile
+			fServer.push(returnFile)
 
 			return &ErrFileExists{
 				ErrorString:   fName + " already exists in the cache",
-				DuplicateFile: returnFile.URL,
+				DuplicateFile: returnFile.UUID,
 			}
 		}
 	}
