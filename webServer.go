@@ -9,7 +9,7 @@ func startServer() {
 	fs := newFileServer()
 	go fs.start()
 
-	http.Handle("/", http.FileServer(http.Dir("./html")))
+	http.Handle("/", http.FileServer(http.Dir("./frontend/dist")))
 	http.HandleFunc("/dld", download)
 	http.HandleFunc("/upl", fs.upload)
 
