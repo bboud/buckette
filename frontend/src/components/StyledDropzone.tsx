@@ -82,8 +82,9 @@ export default function StyledDropzone() {
       const reader = new FileReader()
 
       reader.onabort = () => console.log('file reading was aborted')
-      reader.onerror = () => console.log('file reading has failed')
+      reader.onerror = (e) => console.log(e)
       reader.onload = () => {
+        console.log('hi')
         const binaryStr = reader.result as ArrayBuffer
         setFileData((prev) => {
           if (prev) {
@@ -164,7 +165,8 @@ export default function StyledDropzone() {
 
                 headers: {
                   'File-Hash': hashBase64,
-                  Size: f.size,
+                  'File-Size': f.size,
+                  'File-Name': f.name,
                 },
 
                 maxRedirects: 0,
@@ -174,6 +176,9 @@ export default function StyledDropzone() {
             const data = res.data
 
             if (res.status === 200) {
+              console.log('RESPONSE:')
+              console.log(data)
+
               setFileStatus((prev) => {
                 if (prev) {
                   prev[i].status = 'success'

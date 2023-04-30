@@ -66,16 +66,23 @@ export default function Root() {
                 <b>{f.name}</b>
               </p>
               <a.div style={progressSprings[i]}>
-                <CountUp end={f.progress} decimals={2} suffix={'%'} />
+                <CountUp
+                  end={f.progress}
+                  decimals={2}
+                  suffix={'%'}
+                  preserveValue={true}
+                />
                 <a.div
                   className='dark:bg-zinc-200 rounded-lg bg-zinc-800 h-2'
                   style={fileSprings[i]}></a.div>
               </a.div>
-              {f.status === 'success' && (
-                <p>
-                  Success!{' '}
-                  <a className='text-blue-500 hover:underline' href={f.url}></a>
-                </p>
+              {!f.error && f.status === 'success' && <p>Success! </p>}
+              {f.url && (
+                <a
+                  className='text-blue-500 hover:underline transition-all'
+                  href={f.url}>
+                  {f.url}
+                </a>
               )}
               {f.error && <p className='text-red-500'>{f.error}</p>}
             </div>
