@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -8,13 +9,11 @@ import (
 	"time"
 )
 
-// type File struct {
-// 	Size          int64
-// 	ContentType   string
-// 	UserUploaded  string
-// }
+func (fServer *FileServer) upload(rw http.ResponseWriter, req *http.Request) {
+	rw.Header().Set("Access-Control-Allow-Origin", "*")
 
-func (fs *FileServer) upload(rw http.ResponseWriter, req *http.Request) {
+	LogConnection(req)
+
 	multipartReader, err := req.MultipartReader()
 	if err != nil {
 		log.Printf("ERROR: %v | Called by: %s", err, "MultipartReader")
@@ -31,6 +30,7 @@ func (fs *FileServer) upload(rw http.ResponseWriter, req *http.Request) {
 				break
 			}
 
+			fmt.Println(p.Header)
 			// Handle the file saving in another goroutine
 			f := &File{
 				FileName:      "testing",
@@ -38,14 +38,13 @@ func (fs *FileServer) upload(rw http.ResponseWriter, req *http.Request) {
 				DownloadCount: 0,
 			}
 
-			response, err := f.Push(p, fs.generateRecord(8))
+			response, err := f.HandleUploadPart(p, fServer)
+			// Don't need to handle here
 			if err != nil {
-				log.Println(err)
+				continue
 			}
 			rw.WriteHeader(200)
 			rw.Write(response)
-
-			fs.push(f)
 		}
 	}
 }
