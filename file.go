@@ -15,10 +15,7 @@ import (
 const (
 	FileStoreDir   = "./data/filer/store/files/"
 	RecordStoreDir = "./data/filer/store/records/"
-)
-
-var (
-	TmpDir string = os.TempDir() + "/buckette/"
+	TmpDir         = "./data/tmp/"
 )
 
 type FileContent []byte
