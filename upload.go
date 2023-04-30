@@ -39,6 +39,7 @@ func (fServer *FileServer) upload(rw http.ResponseWriter, req *http.Request) {
 					err,
 				)
 			}
+			contentType := req.Header.Get("File-Type")
 			//hash := req.Header.Get("File-Hash")
 
 			// Handle the file saving in another goroutine
@@ -47,6 +48,7 @@ func (fServer *FileServer) upload(rw http.ResponseWriter, req *http.Request) {
 				Uploaded:      time.Now(),
 				Size:          fileSize,
 				DownloadCount: 0,
+				ContentType:   contentType,
 			}
 
 			response, err := f.HandleUploadPart(p, fServer)

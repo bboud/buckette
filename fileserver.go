@@ -23,16 +23,16 @@ func (err *ErrFileExists) Error() string {
 
 type FileServer struct {
 	Files        map[[32]byte]File
+	URLs         map[string][32]byte
 	RecordsCount int64
-	QueueSize    int
 	newFile      chan *File
 }
 
 func newFileServer() *FileServer {
 	return &FileServer{
-		QueueSize: 0,
-		newFile:   make(chan *File, 5),
-		Files:     make(map[[32]byte]File),
+		newFile: make(chan *File),
+		Files:   make(map[[32]byte]File),
+		URLs:    make(map[string][32]byte),
 	}
 }
 
@@ -40,37 +40,33 @@ func (fServer *FileServer) initialize() {
 
 	LogPrint("Initializing file server! 🗄️")
 
-	homedir, err := os.UserHomeDir()
+	LogPrint("Checking if data directories exist 🗃️")
+	var err error
+	_, exists := os.Stat(FileStoreDir)
+	if os.IsNotExist(exists) {
+		err = os.MkdirAll(FileStoreDir, 0755)
+	}
+
+	_, exists = os.Stat(RecordStoreDir)
+	if os.IsNotExist(exists) {
+		err = os.MkdirAll(RecordStoreDir, 0755)
+	}
+
+	_, exists = os.Stat(TmpDir)
+	if os.IsNotExist(exists) {
+		err = os.MkdirAll(TmpDir, 0755)
+	}
+
 	if err != nil {
 		LogFatal(
-			"Unable to load user's home directory",
+			"Cannot create database directories",
 			"Initialization of database",
 			err)
 	}
 
-	LogPrint("Checking if data directories exist 🗃️")
-	_, exists := os.Stat(homedir + FileStoreDir)
-	if os.IsNotExist(exists) {
-		err = os.MkdirAll(homedir+FileStoreDir, 0755)
-	}
-
-	_, exists = os.Stat(homedir + RecordStoreDir)
-	if os.IsNotExist(exists) {
-		err = os.MkdirAll(homedir+RecordStoreDir, 0755)
-	}
-
-	_, exists = os.Stat(homedir + TmpDir)
-	if os.IsNotExist(exists) {
-		err = os.MkdirAll(homedir+TmpDir, 0755)
-	}
-
-	if err != nil {
-		log.Fatal("Cannot create database directories")
-	}
-
 	LogPrint("Loading all records into cache from disk 🏋️")
 
-	dir, err := os.ReadDir(homedir + RecordStoreDir)
+	dir, err := os.ReadDir(RecordStoreDir)
 	if err != nil {
 		LogFatal(
 			"Unable to load records into cache from disk",
@@ -92,7 +88,7 @@ func (fServer *FileServer) initialize() {
 			return
 		}
 
-		recordData, err := os.ReadFile(homedir + RecordStoreDir + file.Name())
+		recordData, err := os.ReadFile(RecordStoreDir + file.Name())
 		if err != nil {
 			LogFatal(
 				"Unable to read record "+file.Name(),
@@ -123,25 +119,16 @@ func (fServer *FileServer) start() {
 func (fServer *FileServer) handleNewFiles() {
 	for f := range fServer.newFile {
 		fServer.Files[f.UUID] = *f
+		fServer.URLs[f.URL] = f.UUID
 		fServer.RecordsCount += 1
-		fServer.QueueSize -= 1
 	}
 }
 
 func (fServer *FileServer) push(f *File) {
-	fServer.QueueSize += 1
 	fServer.newFile <- f
 }
 
 func (fServer *FileServer) exists(fileHash []byte) *ErrFileExists {
-	homedir, err := os.UserHomeDir()
-	if err != nil {
-		LogFatal(
-			"Unable to load user's home directory",
-			"Initialization of database",
-			err)
-	}
-
 	for _, file := range fServer.Files {
 		if bytes.Equal(file.UUID[:], fileHash) {
 			return &ErrFileExists{
@@ -156,9 +143,9 @@ func (fServer *FileServer) exists(fileHash []byte) *ErrFileExists {
 		return nil
 	}
 
-	dir, err := os.ReadDir(homedir + FileStoreDir)
+	dir, err := os.ReadDir(FileStoreDir)
 	if err != nil {
-		log.Fatalf("Unable to open %s due to %e\n", homedir+FileStoreDir, err)
+		log.Fatalf("Unable to open %s due to %e\n", FileStoreDir, err)
 	}
 
 	// Now for expensive
@@ -197,12 +184,12 @@ func (fServer *FileServer) exists(fileHash []byte) *ErrFileExists {
 
 // Finds the record
 func (fServer *FileServer) FindByURL(url string) *File {
-	for _, v := range fServer.Files {
-		if v.URL == url {
-			return &v
-		}
+	uuid, ok := fServer.URLs[url]
+	if !ok {
+		return nil
 	}
-	return nil
+	file := fServer.Files[uuid]
+	return &file
 }
 
 func (fServer *FileServer) generateURL(length int) string {

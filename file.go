@@ -13,10 +13,12 @@ import (
 )
 
 const (
-	FileStoreDir   = "/data/filer/store/files/"
-	RecordStoreDir = "/data/filer/store/records/"
-	TmpDir         = "/data/filer/tmp/"
-	bufferSize     = 8 * 1024
+	FileStoreDir   = "./data/filer/store/files/"
+	RecordStoreDir = "./data/filer/store/records/"
+)
+
+var (
+	TmpDir string = os.TempDir() + "/buckette/"
 )
 
 type FileContent []byte
@@ -40,18 +42,10 @@ func (f *File) HandleUploadPart(part *multipart.Part, fServer *FileServer) ([]by
 	f.tmpHash = fServer.generateURL(8)
 	f.URL = f.tmpHash
 
-	homedir, err := os.UserHomeDir()
-	if err != nil {
-		LogFatal(
-			"Unable to load user's home directory",
-			"Handling upload part for "+f.tmpHash,
-			err)
-	}
-
-	record, err := os.OpenFile(homedir+TmpDir+f.tmpHash, os.O_CREATE|os.O_RDWR, 0644)
+	record, err := os.OpenFile(TmpDir+f.tmpHash, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		LogWarning(
-			"Unable to create file "+homedir+TmpDir+f.tmpHash,
+			"Unable to create file "+TmpDir+f.tmpHash,
 			"Handling upload part for "+f.tmpHash,
 			err,
 		)
@@ -59,10 +53,10 @@ func (f *File) HandleUploadPart(part *multipart.Part, fServer *FileServer) ([]by
 	}
 	defer record.Close()
 
-	file, err := os.OpenFile(homedir+TmpDir+"DAT_"+f.tmpHash, os.O_CREATE|os.O_RDWR, 0644)
+	file, err := os.OpenFile(TmpDir+"DAT_"+f.tmpHash, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		LogWarning(
-			"Unable to create file "+homedir+TmpDir+"DAT_"+f.tmpHash,
+			"Unable to create file "+TmpDir+"DAT_"+f.tmpHash,
 			"Handling upload part for "+f.tmpHash,
 			err,
 		)
@@ -131,14 +125,8 @@ func (f *File) HandleUploadPart(part *multipart.Part, fServer *FileServer) ([]by
 }
 
 func (f *File) finalize(fServer *FileServer) *ErrFileExists {
-
-	homedir, err := os.UserHomeDir()
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	// Hash the file contents
-	contents, err := os.ReadFile(homedir + TmpDir + "DAT_" + f.tmpHash)
+	contents, err := os.ReadFile(TmpDir + "DAT_" + f.tmpHash)
 	if err != nil {
 		log.Fatal("Unable to read temp file")
 		log.Println("Unable to clean up after failed temp file read")
@@ -150,7 +138,7 @@ func (f *File) finalize(fServer *FileServer) *ErrFileExists {
 	}
 	f.uuidName = encodeToString(f.UUID[:])
 
-	err = os.Rename(homedir+TmpDir+f.tmpHash, homedir+RecordStoreDir+f.uuidName)
+	err = os.Rename(TmpDir+f.tmpHash, RecordStoreDir+f.uuidName)
 	if err != nil {
 		LogFatal(
 			"Unable to move temporary file to file store",
@@ -159,7 +147,7 @@ func (f *File) finalize(fServer *FileServer) *ErrFileExists {
 	}
 
 	// We want to store the files using their hash for faster lookup on disk
-	err = os.Rename(homedir+TmpDir+"DAT_"+f.tmpHash, homedir+FileStoreDir+f.uuidName)
+	err = os.Rename(TmpDir+"DAT_"+f.tmpHash, FileStoreDir+f.uuidName)
 	if err != nil {
 		LogFatal(
 			"Unable to move temporary file to file store",
@@ -171,14 +159,7 @@ func (f *File) finalize(fServer *FileServer) *ErrFileExists {
 }
 
 func cleanTmp(tmpHash string) {
-	homedir, err := os.UserHomeDir()
-	if err != nil {
-		LogFatal(
-			"Unable to get the users home directory ",
-			"Cleaning the temporary file directory",
-			err)
-	}
-	if err := os.Remove(homedir + TmpDir + tmpHash); err != nil {
+	if err := os.Remove(TmpDir + tmpHash); err != nil {
 		if !os.IsNotExist(err) {
 			LogWarning(
 				"Unable to clean up after "+tmpHash,
@@ -186,7 +167,7 @@ func cleanTmp(tmpHash string) {
 				err)
 		}
 	}
-	if err := os.Remove(homedir + TmpDir + "DAT_" + tmpHash); err != nil {
+	if err := os.Remove(TmpDir + "DAT_" + tmpHash); err != nil {
 		if !os.IsNotExist(err) {
 			LogWarning(
 				"Unable to clean up after "+tmpHash,
