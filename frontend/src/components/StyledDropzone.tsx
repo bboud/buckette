@@ -167,6 +167,7 @@ export default function StyledDropzone() {
                   'File-Hash': hashBase64,
                   'File-Size': f.size,
                   'File-Name': f.name,
+                  'File-Type': f.type,
                 },
 
                 maxRedirects: 0,
