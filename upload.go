@@ -15,6 +15,7 @@ import (
 // }
 
 func (fs *FileServer) upload(rw http.ResponseWriter, req *http.Request) {
+	rw.Header().Set("Access-Control-Allow-Origin", "*")
 	multipartReader, err := req.MultipartReader()
 	if err != nil {
 		log.Printf("ERROR: %v | Called by: %s", err, "MultipartReader")
