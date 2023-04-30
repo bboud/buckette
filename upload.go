@@ -1,10 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -30,11 +30,22 @@ func (fServer *FileServer) upload(rw http.ResponseWriter, req *http.Request) {
 				break
 			}
 
-			fmt.Println(p.Header)
+			fileName := req.Header.Get("File-Name")
+			fileSize, err := strconv.ParseInt(req.Header.Get("File-Size"), 10, 64)
+			if err != nil {
+				LogWarning(
+					"Unable to get file size",
+					"Attempting to parse file size from header",
+					err,
+				)
+			}
+			//hash := req.Header.Get("File-Hash")
+
 			// Handle the file saving in another goroutine
 			f := &File{
-				FileName:      "testing",
+				FileName:      fileName,
 				Uploaded:      time.Now(),
+				Size:          fileSize,
 				DownloadCount: 0,
 			}
 
