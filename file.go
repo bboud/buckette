@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	FileStoreDir   = "./data/filer/store/files/"
-	RecordStoreDir = "./data/filer/store/records/"
-	TmpDir         = "./data/tmp/"
+	FileStoreDir   = "./buckette-data/files/"
+	RecordStoreDir = "./buckette-data/records/"
+	TmpDir         = "./buckette-data/tmp/"
 )
 
 type FileContent []byte

@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-func (fServer *FileServer) router(rw http.ResponseWriter, req *http.Request) {
+func (fServer *FileServer) download(rw http.ResponseWriter, req *http.Request) {
 	LogConnection(req)
 
 	file := fServer.FindByURL(req.RequestURI[1:])
@@ -26,6 +26,7 @@ func (fServer *FileServer) router(rw http.ResponseWriter, req *http.Request) {
 			)
 		}
 		rw.Write(content)
+		return
 	}
 
 	http.FileServer(http.Dir("./frontend/dist")).ServeHTTP(rw, req)

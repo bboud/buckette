@@ -7,14 +7,18 @@ import (
 
 func startServer() {
 	fServer := newFileServer()
-	go fServer.start()
+	go fServer.handleNewFiles()
 	fServer.initialize()
 
 	LogPrint("Registering web server handlers 📝")
 
-	http.HandleFunc("/", fServer.router)
-	http.HandleFunc("/upl", fServer.upload)
+	// Root handler will parse download URL's and serve web content
+	http.HandleFunc("/", fServer.download)
 
-	LogSucess("Web server is ready for ducks! 🕸️ 🦆")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	// API handlers
+	http.HandleFunc("/upl", fServer.upload)
+	http.HandleFunc("/ls/", fServer.ls)
+
+	LogSucess("Web server is ready! Is that what ducks walk on? 🕸️ 🦆")
+	log.Fatal(http.ListenAndServe(":8080", nil)) //Blocker
 }

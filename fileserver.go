@@ -110,12 +110,6 @@ func (fServer *FileServer) initialize() {
 	LogSucess("Fileserver is ready! 👻")
 }
 
-func (fServer *FileServer) start() {
-	go fServer.handleNewFiles()
-
-	select {}
-}
-
 func (fServer *FileServer) handleNewFiles() {
 	for f := range fServer.newFile {
 		fServer.Files[f.UUID] = *f
