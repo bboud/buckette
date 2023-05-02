@@ -5,6 +5,10 @@ import (
 	"net/http"
 )
 
+const (
+	SiteFiles = "./frontend/dist"
+)
+
 func main() {
 	LogPrint("Welcome to buckette version 0.0.1, thanks for stopin' by! 👋")
 	fServer := NewFileServer()

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"strconv"
@@ -23,10 +22,10 @@ func (fServer *FileServer) HandleUpload(rw http.ResponseWriter, req *http.Reques
 	LogConnection(req)
 
 	// Only do disk lookups if we are at record max
-	if fServer.RecordsCount <= MaxRecords {
+	if fServer.RecordsCount >= MaxRecords {
 		LogWarning(
 			"This shouldn't have happened.",
-			"Attempting to ",
+			"Attempting to upload a file",
 			errors.New("the server has reached max records"),
 		)
 		rw.WriteHeader(500)
@@ -35,7 +34,11 @@ func (fServer *FileServer) HandleUpload(rw http.ResponseWriter, req *http.Reques
 
 	multipartReader, err := req.MultipartReader()
 	if err != nil {
-		log.Printf("ERROR: %v | Called by: %s", err, "MultipartReader")
+		LogWarning(
+			"Multipart reader has failed",
+			"Attempting to read multipart form",
+			err,
+		)
 		return
 	}
 	if strings.HasPrefix(req.Header.Get("Content-Type"), "multipart/") {

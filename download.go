@@ -17,17 +17,18 @@ func (fServer *FileServer) HandleDownload(rw http.ResponseWriter, req *http.Requ
 		fileName := encodeToString(file.UUID[:])
 		content, err := os.ReadFile(FileStoreDir + fileName)
 		if err != nil {
-			rw.Header().Set("Status", "File unreadable")
-			rw.WriteHeader(500)
 			LogWarning(
 				"Unable to read file "+file.FileName,
 				"Attempting to send file to requester",
 				err,
 			)
+			rw.WriteHeader(500)
+			return
 		}
 		rw.Write(content)
 		return
 	}
 
-	http.FileServer(http.Dir("./frontend/dist")).ServeHTTP(rw, req)
+	// Serve main website
+	http.FileServer(http.Dir(SiteFiles)).ServeHTTP(rw, req)
 }
