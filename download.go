@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-func (fServer *FileServer) download(rw http.ResponseWriter, req *http.Request) {
+func (fServer *FileServer) HandleDownload(rw http.ResponseWriter, req *http.Request) {
 	LogConnection(req)
 
 	file := fServer.FindByURL(req.RequestURI[1:])

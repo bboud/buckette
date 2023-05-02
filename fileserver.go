@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -12,15 +13,6 @@ import (
 
 const MaxRecords = 100000
 
-type ErrFileExists struct {
-	ErrorString   string
-	DuplicateFile [32]byte
-}
-
-func (err *ErrFileExists) Error() string {
-	return err.ErrorString
-}
-
 type FileServer struct {
 	Files        map[[32]byte]File
 	URLs         map[string][32]byte
@@ -28,7 +20,7 @@ type FileServer struct {
 	newFile      chan *File
 }
 
-func newFileServer() *FileServer {
+func NewFileServer() *FileServer {
 	return &FileServer{
 		newFile: make(chan *File),
 		Files:   make(map[[32]byte]File),
@@ -36,11 +28,7 @@ func newFileServer() *FileServer {
 	}
 }
 
-func (fServer *FileServer) initialize() {
-
-	LogPrint("Initializing file server! 🗄️")
-
-	LogPrint("Checking if data directories exist 🗃️")
+func makeDataStore() {
 	var err error
 	_, exists := os.Stat(FileStoreDir)
 	if os.IsNotExist(exists) {
@@ -63,9 +51,9 @@ func (fServer *FileServer) initialize() {
 			"Initialization of database",
 			err)
 	}
+}
 
-	LogPrint("Loading all records into cache from disk 🏋️")
-
+func (fServer *FileServer) LoadFromDisk() {
 	dir, err := os.ReadDir(RecordStoreDir)
 	if err != nil {
 		LogFatal(
@@ -96,7 +84,7 @@ func (fServer *FileServer) initialize() {
 				err)
 		}
 
-		var record *File
+		var record File
 		err = json.Unmarshal(recordData, &record)
 		if err != nil {
 			LogFatal(
@@ -105,75 +93,39 @@ func (fServer *FileServer) initialize() {
 				err)
 		}
 		record.uuidName = encodeToString(record.UUID[:])
-		fServer.push(record)
-	}
-	LogSucess("Fileserver is ready! 👻")
-}
-
-func (fServer *FileServer) handleNewFiles() {
-	for f := range fServer.newFile {
-		fServer.Files[f.UUID] = *f
-		fServer.URLs[f.URL] = f.UUID
-		fServer.RecordsCount += 1
+		fServer.Push(record)
 	}
 }
 
-func (fServer *FileServer) push(f *File) {
-	fServer.newFile <- f
+func (fServer *FileServer) Initialize() {
+
+	LogPrint("Initializing file server! 🗄️")
+
+	LogPrint("Checking if data directories exist 🗃️")
+	makeDataStore()
+
+	LogPrint("Loading all records into cache from disk 🏋️")
+	fServer.LoadFromDisk()
+
+	LogSuccess("Fileserver is ready! 👻")
 }
 
-func (fServer *FileServer) exists(fileHash []byte) *ErrFileExists {
+func (fServer *FileServer) Push(f File) {
+	fServer.Files[f.UUID] = f
+	fServer.URLs[f.URL] = f.UUID
+	fServer.RecordsCount += 1
+}
+
+// This will need a condition to check the disk once past max records in ram
+// but this can be done later..
+func (fServer *FileServer) Exists(fileHash []byte) string {
 	for _, file := range fServer.Files {
 		if bytes.Equal(file.UUID[:], fileHash) {
-			return &ErrFileExists{
-				ErrorString:   file.FileName + " already exists in the cache",
-				DuplicateFile: file.UUID,
-			}
+			return file.URL
 		}
 	}
 
-	// Only do disk lookups if we are at record max
-	if fServer.RecordsCount <= MaxRecords {
-		return nil
-	}
-
-	dir, err := os.ReadDir(FileStoreDir)
-	if err != nil {
-		log.Fatalf("Unable to open %s due to %e\n", FileStoreDir, err)
-	}
-
-	// Now for expensive
-	for _, file := range dir {
-		if file.IsDir() {
-			continue
-		}
-		fName := encodeToString(fileHash)
-
-		if fName == unSanitize(file.Name()) {
-			// OK now we need to get the associated record
-			record, err := os.ReadFile(RecordStoreDir + fName)
-			if err != nil {
-				log.Fatalf("Unable to read record %s error: %e\n", fName, err)
-			}
-
-			returnFile := &File{}
-			err = json.Unmarshal(record, &returnFile)
-			if err != nil {
-				log.Println("Unable to marshal json from record lookup")
-			}
-
-			returnFile.uuidName = encodeToString(returnFile.UUID[:])
-			// Add it to cache
-			fServer.push(returnFile)
-
-			return &ErrFileExists{
-				ErrorString:   fName + " already exists in the cache",
-				DuplicateFile: returnFile.UUID,
-			}
-		}
-	}
-
-	return nil
+	return ""
 }
 
 // Finds the record
@@ -186,19 +138,41 @@ func (fServer *FileServer) FindByURL(url string) *File {
 	return &file
 }
 
-func (fServer *FileServer) generateURL(length int) string {
-	b := make([]byte, length)
+// Rename to capital
+func (fServer *FileServer) GenerateURL(f *File) error {
+	b := make([]byte, 8)
 	if _, err := rand.Read(b); err != nil {
 		LogFatal(
 			"Unable to generate unique URL",
 			"Generation of URL",
 			err)
-		return ""
+		return err
 	}
 
 	hash := hex.EncodeToString(b)
 	if fServer.FindByURL(hash) != nil {
-		return fServer.generateURL(length)
+		return fServer.GenerateURL(f)
 	}
-	return hash
+
+	f.tmpHash = hash
+	f.URL = hash
+
+	return nil
+}
+
+func (fServer *FileServer) CheckHash(f *File) error {
+	// Hash the file contents
+	contents, err := os.ReadFile(TmpDir + "DAT_" + f.tmpHash)
+	if err != nil {
+		log.Fatal("Unable to read temp file")
+		log.Println("Unable to clean up after failed temp file read")
+	}
+
+	f.UUID = sha256.Sum256(contents)
+	if fServer.Exists(f.UUID[:]) == "" {
+		return errors.New("the hash is already present on the server")
+	}
+	f.uuidName = encodeToString(f.UUID[:])
+
+	return nil
 }
