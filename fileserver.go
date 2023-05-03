@@ -160,6 +160,14 @@ func (fServer *FileServer) GenerateURL(f *File) error {
 	return nil
 }
 
+type FileExists struct {
+	File File
+}
+
+func (e *FileExists) Error() string {
+	return "file already exists"
+}
+
 func (fServer *FileServer) CheckHash(f *File) error {
 	// Hash the file contents
 	contents, err := os.ReadFile(TmpDir + "DAT_" + f.tmpHash)
@@ -169,10 +177,12 @@ func (fServer *FileServer) CheckHash(f *File) error {
 	}
 
 	f.UUID = sha256.Sum256(contents)
-	if fServer.Exists(f.UUID[:]) == "" {
-		return errors.New("the hash is already present on the server")
-	}
 	f.uuidName = encodeToString(f.UUID[:])
+	if fServer.Exists(f.UUID[:]) == "" {
+		return &FileExists{
+			File: fServer.Files[f.UUID],
+		}
+	}
 
 	return nil
 }
