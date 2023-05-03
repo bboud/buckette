@@ -25,6 +25,7 @@ func (fServer *FileServer) HandleDownload(rw http.ResponseWriter, req *http.Requ
 			rw.WriteHeader(500)
 			return
 		}
+		file.DownloadCount += 1
 		rw.Write(content)
 		return
 	}

@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"log"
 	"os"
 )
 
@@ -92,7 +91,6 @@ func (fServer *FileServer) LoadFromDisk() {
 				"Initialization of database",
 				err)
 		}
-		record.uuidName = encodeToString(record.UUID[:])
 		fServer.Push(record)
 	}
 }
@@ -118,14 +116,14 @@ func (fServer *FileServer) Push(f File) {
 
 // This will need a condition to check the disk once past max records in ram
 // but this can be done later..
-func (fServer *FileServer) Exists(fileHash []byte) string {
+func (fServer *FileServer) Exists(fileHash []byte) bool {
 	for _, file := range fServer.Files {
 		if bytes.Equal(file.UUID[:], fileHash) {
-			return file.URL
+			return true
 		}
 	}
 
-	return ""
+	return false
 }
 
 // Finds the record
@@ -138,51 +136,44 @@ func (fServer *FileServer) FindByURL(url string) *File {
 	return &file
 }
 
-// Rename to capital
-func (fServer *FileServer) GenerateURL(f *File) error {
+func (fServer *FileServer) GenerateURL() (string, error) {
 	b := make([]byte, 8)
 	if _, err := rand.Read(b); err != nil {
 		LogFatal(
 			"Unable to generate unique URL",
 			"Generation of URL",
 			err)
-		return err
+		return "", err
 	}
 
 	hash := hex.EncodeToString(b)
 	if fServer.FindByURL(hash) != nil {
-		return fServer.GenerateURL(f)
+		return fServer.GenerateURL()
 	}
 
-	f.tmpHash = hash
-	f.URL = hash
-
-	return nil
+	return hash, nil
 }
 
-type FileExists struct {
-	File File
-}
+type FileExists struct{}
 
 func (e *FileExists) Error() string {
 	return "file already exists"
 }
 
-func (fServer *FileServer) CheckHash(f *File) error {
+func (fServer *FileServer) NewFile(tmpHash string) (*File, error) {
 	// Hash the file contents
-	contents, err := os.ReadFile(TmpDir + "DAT_" + f.tmpHash)
+	contents, err := os.ReadFile(TmpDir + "DAT_" + tmpHash)
 	if err != nil {
-		log.Fatal("Unable to read temp file")
-		log.Println("Unable to clean up after failed temp file read")
+		return nil, err
 	}
 
-	f.UUID = sha256.Sum256(contents)
-	f.uuidName = encodeToString(f.UUID[:])
-	if fServer.Exists(f.UUID[:]) == "" {
-		return &FileExists{
-			File: fServer.Files[f.UUID],
-		}
+	uuid := sha256.Sum256(contents)
+	if fServer.Exists(uuid[:]) {
+		return fServer.FindByURL(tmpHash), &FileExists{}
 	}
 
-	return nil
+	// Set the UUID for the new file!
+	return &File{
+		UUID: uuid,
+	}, nil
 }

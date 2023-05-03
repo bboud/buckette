@@ -1,22 +1,17 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 )
-
-type UploadResponse struct {
-	URL        string
-	Duplicate  bool
-	File       File
-	StatusCode int
-}
 
 func (fServer *FileServer) HandleUpload(rw http.ResponseWriter, req *http.Request) {
 	rw.Header().Set("Access-Control-Allow-Origin", "*")
@@ -59,29 +54,17 @@ func (fServer *FileServer) HandleUpload(rw http.ResponseWriter, req *http.Reques
 			}
 
 			// Move this transmision black into the function
-			data, err := fServer.HandleUploadPart(rw, p, req)
-			if err != nil {
-				LogWarning(
-					"Unable to complete request",
-					"Attempting to get data to send to the response writer",
-					err,
-				)
-				rw.WriteHeader(400)
-				return
-			}
-
-			rw.WriteHeader(200)
-			rw.Write(data)
+			fServer.HandleUploadPart(rw, p, req)
 		}
 	}
 }
 
-func (fServer *FileServer) HandleUploadPart(rw http.ResponseWriter, p *multipart.Part, req *http.Request) ([]byte, error) {
+type UploadResponse struct {
+	Duplicate bool
+	File      File
+}
 
-	var uploadResponse = UploadResponse{
-		Duplicate: false,
-	}
-
+func (fServer *FileServer) HandleUploadPart(rw http.ResponseWriter, p *multipart.Part, req *http.Request) {
 	fileName := req.Header.Get("File-Name")
 	fileSize, err := strconv.ParseInt(req.Header.Get("File-Size"), 10, 64)
 	if err != nil {
@@ -90,8 +73,7 @@ func (fServer *FileServer) HandleUploadPart(rw http.ResponseWriter, p *multipart
 			"Attempting to parse file size from header",
 			err,
 		)
-
-		return nil, err
+		return
 	}
 	contentType := req.Header.Get("File-Type")
 
@@ -102,20 +84,12 @@ func (fServer *FileServer) HandleUploadPart(rw http.ResponseWriter, p *multipart
 			errors.New("no file desriptors in header"),
 		)
 		rw.WriteHeader(400)
-		return nil, err
+		return
 	}
 
-	t := time.Now()
+	//t := time.Now()
 
-	uploadResponse.File = File{
-		FileName:      fileName,
-		Uploaded:      time.Now(),
-		Size:          fileSize,
-		DownloadCount: 0,
-		ContentType:   contentType,
-	}
-
-	err = fServer.GenerateURL(&uploadResponse.File)
+	url, err := fServer.GenerateURL()
 	if err != nil {
 		LogWarning(
 			"Unable to generate URL",
@@ -123,75 +97,142 @@ func (fServer *FileServer) HandleUploadPart(rw http.ResponseWriter, p *multipart
 			err,
 		)
 		rw.WriteHeader(500)
-		return nil, err
+		return
 	}
 
-	if err := uploadResponse.File.copyToFileSystem(p); err != nil {
-		uploadResponse.File.cleanTmp(false)
+	if err := copyToFileSystem(p, url); err != nil {
 		LogWarning(
 			"Unable to copy files to filesystem",
 			"Handling of the part upload",
 			err,
 		)
 		rw.WriteHeader(500)
-		return nil, err
+		return
 	}
+	defer cleanTmp(url)
 
-	// Check Hash
-	// Most expensive call
-	err = fServer.CheckHash(&uploadResponse.File)
-	var success = true
-
-	//Drop this through for clean up stage
-	tempHash := uploadResponse.File.tmpHash
+	// Now see if making a new file from the url.
+	file, err := fServer.NewFile(url)
+	if file == nil {
+		LogWarning(
+			"Unable to create new file",
+			"Attempting to generate a new file for the response",
+			err,
+		)
+		return
+	}
 
 	var fileExists *FileExists
-	if errors.As(err, &fileExists) {
-		uploadResponse = UploadResponse{
-			URL:       fileExists.File.URL,
-			Duplicate: true,
-			File:      fileExists.File,
-		}
-		uploadResponse.File.tmpHash = tempHash
-		success = false
-	} else if err != nil {
-		uploadResponse.File.cleanTmp(false)
-		LogWarning(
-			"Unable to check hash for file",
-			"Handling of the part upload for "+uploadResponse.File.tmpHash,
-			err,
-		)
-		rw.WriteHeader(500)
-		return nil, err
+	var uplResponse UploadResponse
+	uplResponse.File = *file
+	uplResponse.Duplicate = errors.Is(err, fileExists)
+	if !uplResponse.Duplicate {
+		file.FileName = fileName
+		file.URL = url
+		file.Size = fileSize
+		file.ContentType = contentType
+		file.Uploaded = time.Now()
+		writeRecord(file)
 	}
 
-	if err := uploadResponse.File.cleanTmp(success); err != nil {
-		LogFatal(
-			"Unable to move files into database store!",
-			"Handling of the part upload for "+uploadResponse.File.tmpHash,
-			err,
-		)
-		rw.WriteHeader(500)
-		return nil, err
-	}
-
-	if success {
-		// Save a copy
-		fServer.Push(uploadResponse.File)
-
-		LogSuccess("New file uploaded in " + time.Since(t).String() + "! 🍃")
-	}
-
-	data, err := json.Marshal(uploadResponse)
+	data, err := json.Marshal(uplResponse)
 	if err != nil {
 		LogWarning(
-			"Unable to marshal upload response",
-			"Returning data from the upload handler",
+			"Unable to marshal the response data",
+			"HandleUploadPart",
 			err,
 		)
 		rw.WriteHeader(500)
-		return nil, err
+		return
 	}
 
-	return data, nil
+	rw.WriteHeader(200)
+	rw.Write(data)
+}
+
+const (
+	FileStoreDir   = "./buckette-data/files/"
+	RecordStoreDir = "./buckette-data/records/"
+	TmpDir         = "./buckette-data/tmp/"
+)
+
+func copyToFileSystem(reader io.Reader, url string) error {
+	file, err := os.OpenFile(TmpDir+"DAT_"+url, os.O_CREATE|os.O_RDWR, 0644)
+	if err != nil {
+		LogWarning(
+			"Unable to create file "+TmpDir+"DAT_"+url,
+			"Handling upload part for "+url,
+			err,
+		)
+		return err
+	}
+	//defer file.Close()
+
+	_, err = io.Copy(file, reader)
+	if err != nil {
+		LogWarning(
+			"Unable to copy data to file "+TmpDir+"DAT_"+url,
+			"Handling upload part for "+url,
+			err,
+		)
+		return err
+	}
+
+	return nil
+}
+
+func writeRecord(f *File) error {
+	uuidName := encodeToString(f.UUID[:])
+
+	record, err := os.OpenFile(RecordStoreDir+uuidName, os.O_CREATE|os.O_RDWR, 0644)
+	if err != nil {
+		LogWarning(
+			"Unable to write record",
+			"Handling upload of part",
+			err,
+		)
+		return err
+	}
+	defer record.Close()
+
+	//Record writer
+	rData, err := json.Marshal(f)
+	if err != nil {
+		LogFatal(
+			"Unable to marshal json",
+			"Handling upload of part",
+			err)
+	}
+
+	record.Write(rData)
+
+	// We want to store the files using their hash for faster lookup on disk
+	err = os.Rename(TmpDir+"DAT_"+f.URL, FileStoreDir+uuidName)
+	if err != nil {
+		LogFatal(
+			"Unable to move temporary file to file store",
+			"Moving file from temp to final storage for "+f.URL,
+			err)
+		return err
+	}
+	return nil
+}
+
+func cleanTmp(url string) error {
+	if err := os.Remove(TmpDir + url); err != nil {
+		if !os.IsNotExist(err) {
+			LogWarning(
+				"Unable to clean up after "+url,
+				"Cleaning the temporary file directory",
+				err)
+			return err
+		}
+	}
+	return nil
+}
+
+func encodeToString(v []byte) string {
+	vName := base64.RawStdEncoding.EncodeToString(v)
+	vName = strings.ReplaceAll(vName, "/", "*")
+	return vName
 }
