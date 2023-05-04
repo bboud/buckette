@@ -61,7 +61,7 @@ func (fServer *FileServer) HandleUpload(rw http.ResponseWriter, req *http.Reques
 
 type UploadResponse struct {
 	Duplicate bool
-	File      File
+	File      *File
 }
 
 func (fServer *FileServer) HandleUploadPart(rw http.ResponseWriter, p *multipart.Part, req *http.Request) {
@@ -124,7 +124,7 @@ func (fServer *FileServer) HandleUploadPart(rw http.ResponseWriter, p *multipart
 
 	var fileExists *FileExists
 	var uplResponse UploadResponse
-	uplResponse.File = *file
+	uplResponse.File = file
 	uplResponse.Duplicate = errors.Is(err, fileExists)
 	if !uplResponse.Duplicate {
 		file.FileName = fileName
@@ -146,7 +146,6 @@ func (fServer *FileServer) HandleUploadPart(rw http.ResponseWriter, p *multipart
 		return
 	}
 
-	rw.WriteHeader(200)
 	rw.Write(data)
 }
 

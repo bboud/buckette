@@ -21,28 +21,6 @@ func TestNewFileServer(t *testing.T) {
 	}
 }
 
-// func TestPush(t *testing.T) {
-// 	fServer := newFileServer()
-
-// 	f := File{
-// 		FileName:      "file",
-// 		Uploaded:      time.Date(2000, 11, 11, 22, 22, 22, 22, time.FixedZone("EST", 0)),
-// 		Size:          0,
-// 		DownloadCount: 0,
-// 		ContentType:   "content",
-// 	}
-
-// 	// // Processing the request
-// 	// _, err := f.HandleUploadPart()
-// 	// if err != nil {
-// 	// 	t.Error(err)
-// 	// }
-
-// 	// fServer.Push(f)
-
-// 	// result := fServer.Files[]
-// }
-
 func TestNewFile(t *testing.T) {
 	fServer := NewFileServer()
 	fServer.Initialize()
