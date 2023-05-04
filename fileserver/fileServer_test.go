@@ -1,10 +1,10 @@
-package main
+package fileserver
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"errors"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -14,7 +14,7 @@ import (
 func TestNewFileServer(t *testing.T) {
 	result := NewFileServer()
 
-	if len(result.newFile) == 0 && len(result.Files) == 0 && len(result.URLs) == 0 {
+	if result.Files != nil && result.URLs != nil {
 		t.Log("The file server has been initialized correctly")
 	} else {
 		t.Error("The file server has not been initialized correctly")
@@ -22,11 +22,22 @@ func TestNewFileServer(t *testing.T) {
 }
 
 func TestNewFile(t *testing.T) {
+
+	var err error
+
+	// If it exists, clear it
+	err = os.RemoveAll("./buckette-data")
+	if !errors.Is(err, os.ErrNotExist) && err != nil {
+		t.Log(err)
+	}
+
+	makeDataStore()
+
 	fServer := NewFileServer()
-	fServer.Initialize()
+	fServer.initialize()
 
 	// Put a file into the file cache
-	url, err := fServer.GenerateURL()
+	url, err := fServer.generateURL()
 	if err != nil {
 		t.Error(err)
 	}
@@ -38,9 +49,9 @@ func TestNewFile(t *testing.T) {
 	defer os.Remove(TmpDir + "DAT_" + url)
 
 	uuid := sha256.Sum256([]byte("This is a test file"))
-	fServer.Push(File{
+	fServer.push(File{
 		URL:  url,
-		UUID: uuid,
+		UUID: encodeToString(uuid[:]),
 	})
 
 	// Now see if making a new file from the url.
@@ -51,14 +62,16 @@ func TestNewFile(t *testing.T) {
 
 	var fileExists *FileExists
 	if errors.Is(err, fileExists) {
-		if bytes.Equal(uuid[:], file.UUID[:]) {
+		// bytes.Equal(uuid[:], file.UUID.UUIDByte[:])
+		if strings.Compare(encodeToString(uuid[:]), file.UUID) == 0 {
 			t.Log("Success!")
 		} else {
 			t.Log(file.URL)
 			t.Error("The file did not return with the correct uuid")
 		}
 	} else {
-		if bytes.Equal(uuid[:], file.UUID[:]) {
+		//bytes.Equal(uuid[:], file.UUID.UUIDByte[:])
+		if strings.Compare(file.UUID, encodeToString(uuid[:])) == 0 {
 			t.Log("Success!")
 		} else {
 			t.Log(file.URL)
@@ -70,7 +83,7 @@ func TestNewFile(t *testing.T) {
 
 	// Now check the case where the file does not exist and we want a blank new file
 	// Put the file in the temp store
-	url, err = fServer.GenerateURL()
+	url, err = fServer.generateURL()
 	if err != nil {
 		t.Error(err)
 	}
@@ -95,9 +108,9 @@ func TestNewFile(t *testing.T) {
 
 func TestGenerateURL(t *testing.T) {
 	fServer := NewFileServer()
-	fServer.Initialize()
+	fServer.initialize()
 
-	url, err := fServer.GenerateURL()
+	url, err := fServer.generateURL()
 	if err != nil {
 		t.Error(err)
 		return
@@ -112,24 +125,24 @@ func TestGenerateURL(t *testing.T) {
 
 func TestExists(t *testing.T) {
 	fServer := NewFileServer()
-	fServer.Initialize()
+	fServer.initialize()
 
 	// Put onto the cache
 	uuid := sha256.Sum256([]byte("This is a test file"))
-	fServer.Push(File{
-		UUID: uuid,
+	fServer.push(File{
+		UUID: encodeToString(uuid[:]),
 	})
 
 	// Check response
 	uuid2 := sha256.Sum256([]byte("This is a test file"))
-	if fServer.Exists(uuid2[:]) {
+	if fServer.exists(encodeToString(uuid2[:])) {
 		t.Log("Successfully found file on server")
 	} else {
 		t.Error("Should have found file but didnt")
 	}
 
 	uuid3 := sha256.Sum256([]byte("This is ANOTHER test file"))
-	if !fServer.Exists(uuid3[:]) {
+	if !fServer.exists(encodeToString(uuid3[:])) {
 		t.Log("Successfully did not find file on server")
 	} else {
 		t.Error("Should have not found file")
@@ -138,22 +151,99 @@ func TestExists(t *testing.T) {
 
 func TestFindByURL(t *testing.T) {
 	fServer := NewFileServer()
-	fServer.Initialize()
+	fServer.initialize()
 
-	url, err := fServer.GenerateURL()
+	url, err := fServer.generateURL()
 	if err != nil {
 		t.Error(err)
 	}
 
-	fServer.Push(File{
+	fServer.push(File{
 		URL: url,
 	})
 
 	//Now we find
-	found := fServer.FindByURL(url)
+	found := fServer.findByURL(url)
 	if found.URL == url {
 		t.Log("Successfully found file by URL")
 	} else {
 		t.Error("Did not find file successfully with URL")
+	}
+}
+
+func TestMakeDataStore(t *testing.T) {
+
+	var notExists bool
+	var err error
+
+	// If it exists, clear it
+	err = os.RemoveAll("./buckette-data")
+	if err != nil {
+		t.Log(err)
+	}
+
+	err = makeDataStore()
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, err = os.Stat(FileStoreDir)
+	notExists = os.IsNotExist(err)
+	if notExists {
+		t.Error(err)
+
+	} else {
+		t.Log("File store dir exists")
+	}
+
+	_, err = os.Stat(RecordStoreDir)
+	notExists = os.IsNotExist(err)
+	if notExists {
+		t.Error(err)
+
+	} else {
+		t.Log("File store dir exists")
+	}
+
+	_, err = os.Stat(TmpDir)
+	notExists = os.IsNotExist(err)
+	if notExists {
+		t.Error(err)
+	} else {
+		t.Log("File store dir exists")
+	}
+}
+
+func TestLoadFromDisk(t *testing.T) {
+	TestHandleUpload(t)
+
+	fServer := NewFileServer()
+
+	err := fServer.loadFromDisk()
+	if err != nil {
+		t.Error(err)
+	}
+
+	//
+	//if fServer.Files[]
+
+}
+
+func TestInitialize(t *testing.T) {
+	TestMakeDataStore(t)
+
+	TestLoadFromDisk(t)
+}
+
+func TestFindByUUID(t *testing.T) {
+	fServer := NewFileServer()
+
+	fServer.push(File{
+		UUID: "not an actual uuid",
+	})
+
+	file := fServer.findByUUID("not an actual uuid")
+	if file == nil {
+		t.Error("Was not able to correctly find the uuid")
 	}
 }

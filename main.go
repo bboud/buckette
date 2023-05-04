@@ -3,18 +3,16 @@ package main
 import (
 	"log"
 	"net/http"
-)
 
-const (
-	SiteFiles = "./frontend/dist"
+	"github.com/bboud/buckette/fileserver"
+	"github.com/bboud/buckette/logger"
 )
 
 func main() {
-	LogPrint("Welcome to buckette version 0.0.1, thanks for stopin' by! 👋")
-	fServer := NewFileServer()
-	fServer.Initialize()
+	logger.LogPrint("Welcome to buckette version 0.0.1, thanks for stopin' by! 👋")
+	fServer := fileserver.NewFileServer()
 
-	LogPrint("Registering web server handlers 📝")
+	logger.LogPrint("Registering web server handlers 📝")
 
 	// Root handler will parse download URL's and serve web content
 	http.HandleFunc("/", fServer.HandleDownload)
@@ -23,6 +21,6 @@ func main() {
 	http.HandleFunc("/upl", fServer.HandleUpload)
 	http.HandleFunc("/ls/", fServer.HandleLS)
 
-	LogSuccess("Web server is ready! Is that what ducks walk on? 🕸️ 🦆")
+	logger.LogSuccess("Web server is ready! Is that what ducks walk on? 🕸️ 🦆")
 	log.Fatal(http.ListenAndServe(":8080", nil)) //Blocker
 }

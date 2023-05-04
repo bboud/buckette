@@ -1,0 +1,4 @@
+.vscode/
+frontend/.yarn
+frontend/dist
+frontend/node_modules

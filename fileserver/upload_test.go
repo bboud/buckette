@@ -1,7 +1,6 @@
-package main
+package fileserver
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -16,9 +15,9 @@ import (
 
 func TestCopyToFileSystem(t *testing.T) {
 	fServer := NewFileServer()
-	fServer.Initialize()
+	fServer.initialize()
 
-	url, err := fServer.GenerateURL()
+	url, err := fServer.generateURL()
 	if err != nil {
 		t.Error(err)
 		return
@@ -43,19 +42,21 @@ func TestCopyToFileSystem(t *testing.T) {
 
 func TestWriteRecord(t *testing.T) {
 	fServer := NewFileServer()
-	fServer.Initialize()
+	fServer.initialize()
 
-	url, err := fServer.GenerateURL()
+	url, err := fServer.generateURL()
 	if err != nil {
 		t.Error(err)
 	}
 
+	uuid := sha256.Sum256([]byte("Some data"))
+
 	file := File{
-		UUID: sha256.Sum256([]byte("Some data")),
+		UUID: encodeToString(uuid[:]),
 		URL:  url,
 	}
 
-	uuidName := encodeToString(file.UUID[:])
+	uuidName := file.UUID
 
 	err = copyToFileSystem(strings.NewReader("This is a string!"), url)
 	if err != nil {
@@ -94,9 +95,9 @@ func TestWriteRecord(t *testing.T) {
 
 func TestCleanTmp(t *testing.T) {
 	fServer := NewFileServer()
-	fServer.Initialize()
+	fServer.initialize()
 
-	url, _ := fServer.GenerateURL()
+	url, _ := fServer.generateURL()
 
 	err := os.WriteFile(TmpDir+url, []byte("Some stuff"), 0644)
 	if err != nil {
@@ -128,7 +129,7 @@ func postRequest(fServer *FileServer) error {
 		return err
 	}
 
-	url, err := fServer.GenerateURL()
+	url, err := fServer.generateURL()
 	if err != nil {
 		return err
 	}
@@ -154,7 +155,7 @@ func postRequest(fServer *FileServer) error {
 	expectedResponse := UploadResponse{
 		Duplicate: false,
 		File: &File{
-			UUID:        uuid,
+			UUID:        encodeToString(uuid[:]),
 			FileName:    "tmp.txt",
 			Size:        14,
 			ContentType: "text/plain",
@@ -174,7 +175,8 @@ func postRequest(fServer *FileServer) error {
 		return errors.New("file names do not match")
 	}
 
-	if !bytes.Equal(expectedResponse.File.UUID[:], uplResponse.File.UUID[:]) {
+	//!bytes.Equal(expectedResponse.File.UUID.UUIDByte[:], uplResponse.File.UUID.UUIDByte[:])
+	if strings.Compare(expectedResponse.File.UUID, uplResponse.File.UUID) != 0 {
 		return errors.New("uuids do not match")
 	}
 
@@ -192,8 +194,17 @@ func postRequest(fServer *FileServer) error {
 }
 
 func TestHandleUpload(t *testing.T) {
+
+	var err error
+
+	// If it exists, clear it
+	err = os.RemoveAll("./buckette-data")
+	if !errors.Is(err, os.ErrNotExist) && err != nil {
+		t.Log(err)
+	}
+
 	fServer := NewFileServer()
-	fServer.Initialize()
+	fServer.initialize()
 
 	m := http.NewServeMux()
 	server := http.Server{

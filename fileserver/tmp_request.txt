@@ -1,0 +1,6 @@
+-----------------------------190042104612722886532900493499
+Content-Disposition: form-data; name="file"; filename="tmp.txt"
+Content-Type: text/plain
+
+this is a test
+-----------------------------190042104612722886532900493499--

@@ -1,25 +1,30 @@
-package main
+package fileserver
 
 import (
 	"fmt"
 	"net/http"
 	"os"
+
+	"github.com/bboud/buckette/logger"
+)
+
+const (
+	SiteFiles = "./frontend/dist"
 )
 
 func (fServer *FileServer) HandleDownload(rw http.ResponseWriter, req *http.Request) {
-	LogConnection(req)
+	logger.LogConnection(req)
 
-	file := fServer.FindByURL(req.RequestURI[1:])
+	file := fServer.findByURL(req.RequestURI[1:])
 	if file != nil {
 		rw.Header().Set("Content-Type", file.ContentType)
 		rw.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", file.FileName))
 
-		fileName := encodeToString(file.UUID[:])
-		content, err := os.ReadFile(FileStoreDir + fileName)
+		content, err := os.ReadFile(FileStoreDir + file.UUID)
 		if err != nil {
-			LogWarning(
+			logger.LogWarning(
 				"Unable to read file "+file.FileName,
-				"Attempting to send file to requester",
+				"fileserver.HandleDownload",
 				err,
 			)
 			rw.WriteHeader(500)
