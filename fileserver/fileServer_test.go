@@ -224,9 +224,12 @@ func TestLoadFromDisk(t *testing.T) {
 		t.Error(err)
 	}
 
-	//
-	//if fServer.Files[]
-
+	file := fServer.findByUUID("Lpl1hUiXKo6IIq1H+hAX*3Lwbz*2oBaFH0XDmHMrxQw")
+	if file == nil {
+		t.Error("File came back nil and thus was not found")
+	} else {
+		t.Log("Successfully loaded from disk")
+	}
 }
 
 func TestInitialize(t *testing.T) {
