@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bboud/buckette/logger"
+	"buckette/logger"
 )
 
 const MaxRecords = 100000
@@ -46,7 +46,7 @@ func NewFileServer() *FileServer {
 
 	err := fServer.initialize()
 	if err != nil {
-		logger.LogFatal(
+		logger.Fatal(
 			"Unable to initialize file server",
 			"fileserver.NewFileServer",
 			err,
@@ -126,21 +126,21 @@ func (fServer *FileServer) loadFromDisk() error {
 
 func (fServer *FileServer) initialize() error {
 
-	logger.LogPrint("Initializing file server! 🗄️")
+	logger.Print("Initializing file server! 🗄️")
 
-	logger.LogPrint("Checking if data directories exist 🗃️")
+	logger.Print("Checking if data directories exist 🗃️")
 	err := makeDataStore()
 	if err != nil {
 		return err
 	}
 
-	logger.LogPrint("Loading all records into cache from disk 🏋️")
+	logger.Print("Loading all records into cache from disk 🏋️")
 	err = fServer.loadFromDisk()
 	if err != nil {
 		return err
 	}
 
-	logger.LogSuccess("Fileserver is ready! 👻")
+	logger.Success("Fileserver is ready! 👻")
 	return nil
 }
 

@@ -8,9 +8,6 @@ import (
 	"testing"
 )
 
-// fServer := newFileServer()
-// go fServer.handleNewFiles()
-// fServer.initialize()
 func TestNewFileServer(t *testing.T) {
 	result := NewFileServer()
 

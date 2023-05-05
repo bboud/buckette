@@ -12,16 +12,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bboud/buckette/logger"
+	"buckette/logger"
 )
 
 func (fServer *FileServer) HandleUpload(rw http.ResponseWriter, req *http.Request) {
 	rw.Header().Set("Access-Control-Allow-Origin", "*")
-	logger.LogConnection(req)
+	logger.Connection(req)
 
 	// Only do disk lookups if we are not at record max
 	if fServer.RecordsCount >= MaxRecords {
-		logger.LogWarning(
+		logger.Warning(
 			"This shouldn't have happened.",
 			"filerserver.HandleUpload",
 			errors.New("the server has reached max records"),
@@ -32,7 +32,7 @@ func (fServer *FileServer) HandleUpload(rw http.ResponseWriter, req *http.Reques
 
 	multipartReader, err := req.MultipartReader()
 	if err != nil {
-		logger.LogWarning(
+		logger.Warning(
 			"Multipart reader has failed",
 			"filerserver.HandleUpload",
 			err,
@@ -46,7 +46,7 @@ func (fServer *FileServer) HandleUpload(rw http.ResponseWriter, req *http.Reques
 				break
 			}
 			if err != nil {
-				logger.LogWarning(
+				logger.Warning(
 					"Unable to read next part",
 					"filerserver.HandleUpload",
 					err,
@@ -69,7 +69,7 @@ func (fServer *FileServer) HandleUploadPart(rw http.ResponseWriter, p *multipart
 	fileName := req.Header.Get("File-Name")
 	fileSize, err := strconv.ParseInt(req.Header.Get("File-Size"), 10, 64)
 	if err != nil {
-		logger.LogWarning(
+		logger.Warning(
 			"Unable to get file size",
 			"filerserver.HandleUploadPart",
 			err,
@@ -79,7 +79,7 @@ func (fServer *FileServer) HandleUploadPart(rw http.ResponseWriter, p *multipart
 	contentType := req.Header.Get("File-Type")
 
 	if fileName == "" || fileSize <= 0 || contentType == "" {
-		logger.LogWarning(
+		logger.Warning(
 			"FileName, FileSize, or ContentType is empty",
 			"filerserver.HandleUploadPart",
 			errors.New("no file desriptors in header"),
@@ -88,11 +88,11 @@ func (fServer *FileServer) HandleUploadPart(rw http.ResponseWriter, p *multipart
 		return
 	}
 
-	//t := time.Now()
+	t := time.Now()
 
 	url, err := fServer.generateURL()
 	if err != nil {
-		logger.LogWarning(
+		logger.Warning(
 			"Unable to generate URL",
 			"filerserver.HandleUploadPart",
 			err,
@@ -102,7 +102,7 @@ func (fServer *FileServer) HandleUploadPart(rw http.ResponseWriter, p *multipart
 	}
 
 	if err := copyToFileSystem(p, url); err != nil {
-		logger.LogWarning(
+		logger.Warning(
 			"Unable to copy files to filesystem",
 			"filerserver.HandleUploadPart",
 			err,
@@ -115,7 +115,7 @@ func (fServer *FileServer) HandleUploadPart(rw http.ResponseWriter, p *multipart
 	// Now see if making a new file from the url.
 	file, err := fServer.NewFile(url)
 	if file == nil {
-		logger.LogWarning(
+		logger.Warning(
 			"Unable to create new file",
 			"filerserver.HandleUploadPart",
 			err,
@@ -136,9 +136,11 @@ func (fServer *FileServer) HandleUploadPart(rw http.ResponseWriter, p *multipart
 		writeRecord(file)
 	}
 
+	logger.Success("Successfully saved " + file.FileName + " in " + time.Since(t).String())
+
 	data, err := json.Marshal(uplResponse)
 	if err != nil {
-		logger.LogWarning(
+		logger.Warning(
 			"Unable to marshal the response data",
 			"filerserver.HandleUploadPart",
 			err,
