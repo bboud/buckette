@@ -120,6 +120,7 @@ func (fServer *FileServer) HandleUploadPart(rw http.ResponseWriter, p *multipart
 			"filerserver.HandleUploadPart",
 			err,
 		)
+		rw.WriteHeader(200)
 		return
 	}
 
@@ -157,7 +158,7 @@ func copyToFileSystem(reader io.Reader, url string) error {
 	if err != nil {
 		return err
 	}
-	//defer file.Close()
+	defer file.Close()
 
 	_, err = io.Copy(file, reader)
 	if err != nil {
