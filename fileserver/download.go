@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	SiteFiles = "./frontend/dist"
+	SiteFiles = "./html"
 )
 
 func (fServer *FileServer) HandleDownload(rw http.ResponseWriter, req *http.Request) {
