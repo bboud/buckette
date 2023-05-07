@@ -99,7 +99,7 @@ func TestCleanTmp(t *testing.T) {
 
 	url, _ := fServer.generateURL()
 
-	err := os.WriteFile(TmpDir+url, []byte("Some stuff"), 0644)
+	err := os.WriteFile(TmpDir+"DAT_"+url, []byte("Some stuff"), 0644)
 	if err != nil {
 		t.Error(err)
 	}
