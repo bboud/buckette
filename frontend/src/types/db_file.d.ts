@@ -10,6 +10,7 @@ type FileDB = {
 
 type FileStatus = {
   name: string
+  type: string
   status: string
   progress: number
   length: number

@@ -11,6 +11,7 @@ import Upload from './routes/upload'
 import { ClerkProvider } from '@clerk/clerk-react'
 import TestRoute from './routes/test'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import Welcome from './routes/welcome'
 
 const clerkPubKey = 'pk_test_ZXhwZXJ0LXdvcm0tMS5jbGVyay5hY2NvdW50cy5kZXYk'
 
@@ -31,6 +32,10 @@ const router = createHashRouter([
         // directory listing
         path: ':directory/*',
         element: <Root />,
+      },
+      {
+        path: 'welcome',
+        element: <Welcome />,
       },
     ],
   },

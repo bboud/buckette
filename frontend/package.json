@@ -15,6 +15,7 @@
     "@esbuild-plugins/node-modules-polyfill": "^0.2.2",
     "@types/node": "^18.16.2",
     "buffer": "^6.0.3",
+    "formdata-polyfill": "^4.0.10",
     "localforage": "^1.10.0",
     "match-sorter": "^6.3.1",
     "react": "^18.2.0",
@@ -22,11 +23,13 @@
     "react-hook-form": "^7.43.9",
     "react-router-dom": "^6.10.0",
     "rollup-plugin-node-polyfills": "^0.2.1",
-    "sort-by": "^1.2.0"
+    "sort-by": "^1.2.0",
+    "vite-compatible-readable-stream": "^3.6.1"
   },
   "devDependencies": {
     "@clerk/themes": "^1.6.3",
     "@fastify/cors": "^8.2.1",
+    "@iconify/react": "^4.1.0",
     "@react-spring/web": "^9.7.2",
     "@tanstack/react-query": "^4.29.5",
     "@types/react": "^18.0.28",

@@ -10,9 +10,6 @@ import { fileStatusAtom } from '../utils/atoms'
 
 import { animated as a, useSpring } from '@react-spring/web'
 
-import { Buffer } from 'buffer'
-globalThis.Buffer = Buffer
-
 import { useAtom } from 'jotai'
 
 const baseStyle: DropzoneRootProps = {
@@ -46,7 +43,7 @@ const rejectStyle = {
 export default function StyledDropzone() {
   const [isUploading, setUploading] = useState(false)
 
-  const [fileData, setFileData] = useState<(string | ArrayBuffer)[]>()
+  const [files, setFiles] = useState<File[]>()
 
   const [fileStatus, setFileStatus] = useAtom(fileStatusAtom)
 
@@ -78,26 +75,7 @@ export default function StyledDropzone() {
   }, [fileStatus])
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    acceptedFiles.forEach((file) => {
-      const reader = new FileReader()
-
-      reader.onabort = () => console.log('file reading was aborted')
-      reader.onerror = (e) => console.log(e)
-      reader.onload = () => {
-        console.log('hi')
-        const binaryStr = reader.result
-        if (binaryStr) {
-          setFileData((prev) => {
-            if (prev) {
-              return [...prev, binaryStr]
-            } else {
-              return [binaryStr]
-            }
-          })
-        }
-      }
-      reader.readAsArrayBuffer(file)
-    })
+    setFiles(acceptedFiles)
   }, [])
 
   const {
@@ -121,32 +99,27 @@ export default function StyledDropzone() {
 
   const fileEndpoint = useMutation({
     mutationFn: async (file: File[]) => {
-      // enumerate through files
-      for (const f of file) {
-        const i = file.indexOf(f)
+      // boundary is file.name
+      file.forEach(async (f, i) => {
         const formData = new FormData()
-        if (fileData) {
-          formData.append(
-            'file',
-            new Blob([fileData[i]], { type: f.type }),
-            f.name,
-          )
+        if (files) {
+          formData.append('file', f, f.name)
           // const res = await fetch('http://localhost:8080/upl', {
           //   method: 'POST',
           //   mode: 'no-cors',
           //   body: formData,
           // })
 
-          const digest = await window.crypto.subtle.digest(
-            'SHA-256',
-            fileData[i] as ArrayBuffer,
-          )
+          // const digest = await window.crypto.subtle.digest(
+          //   'SHA-256',
+          //   await blob.arrayBuffer(),
+          // )
 
-          const hashHex = Array.from(new Uint8Array(digest))
-            .map((b) => b.toString(16).padStart(2, '0'))
-            .join('')
+          // const hashHex = Array.from(new Uint8Array(digest))
+          //   .map((b) => b.toString(16).padStart(2, '0'))
+          //   .join('')
 
-          const hashBase64 = Buffer.from(hashHex).toString('base64')
+          // const hashBase64 = Buffer.from(hashHex).toString('base64')
 
           try {
             const res = await axios.post<FileResponse>(
@@ -167,13 +140,12 @@ export default function StyledDropzone() {
                 },
 
                 headers: {
-                  'File-Hash': hashBase64,
+                  'File-Hash': 'test',
                   'File-Size': f.size,
                   'File-Name': f.name,
-                  'File-Type': f.type,
+                  'File-Type':
+                    f.type === '' ? 'application/octet-stream' : f.type,
                 },
-
-                maxRate: [10, 10],
 
                 maxRedirects: 0,
               },
@@ -218,11 +190,7 @@ export default function StyledDropzone() {
             })
           }
         }
-      }
-
-      // boundary is file.name
-      // file.forEach(async (f, i) => {
-      // })
+      })
     },
   })
 
@@ -282,7 +250,8 @@ export default function StyledDropzone() {
             setFileStatus(
               acceptedFiles.map((file) => ({
                 name: file.name,
-                status: 'Uploading',
+                type: file.type === '' ? 'application/octet-stream' : file.type,
+                status: 'uploading',
                 length: file.size,
                 progress: 0,
                 url: '',
