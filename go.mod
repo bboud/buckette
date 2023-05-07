@@ -1,3 +1,3 @@
-module github.com/bboud/buckette
+module buckette
 
 go 1.20

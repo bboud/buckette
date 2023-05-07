@@ -5,11 +5,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
-	"strings"
 	"time"
 
-	"github.com/bboud/buckette/logger"
+	"buckette/logger"
 )
 
 const MaxRecords = 100000
@@ -32,7 +32,7 @@ type File struct {
 }
 
 type FileServer struct {
-	Files        map[string]File
+	Files        map[string]*File
 	URLs         map[string]string
 	RecordsCount int64
 }
@@ -40,13 +40,13 @@ type FileServer struct {
 func NewFileServer() *FileServer {
 
 	fServer := &FileServer{
-		Files: make(map[string]File),
+		Files: make(map[string]*File),
 		URLs:  make(map[string]string),
 	}
 
 	err := fServer.initialize()
 	if err != nil {
-		logger.LogFatal(
+		logger.Fatal(
 			"Unable to initialize file server",
 			"fileserver.NewFileServer",
 			err,
@@ -114,7 +114,7 @@ func (fServer *FileServer) loadFromDisk() error {
 			return err
 		}
 
-		var record File
+		var record *File
 		err = json.Unmarshal(recordData, &record)
 		if err != nil {
 			return err
@@ -126,25 +126,25 @@ func (fServer *FileServer) loadFromDisk() error {
 
 func (fServer *FileServer) initialize() error {
 
-	logger.LogPrint("Initializing file server! 🗄️")
+	logger.Print("Initializing file server! 🗄️")
 
-	logger.LogPrint("Checking if data directories exist 🗃️")
+	logger.Print("Checking if data directories exist 🗃️")
 	err := makeDataStore()
 	if err != nil {
 		return err
 	}
 
-	logger.LogPrint("Loading all records into cache from disk 🏋️")
+	logger.Print("Loading all records into cache from disk 🏋️")
 	err = fServer.loadFromDisk()
 	if err != nil {
 		return err
 	}
 
-	logger.LogSuccess("Fileserver is ready! 👻")
+	logger.Success("Fileserver is ready! 👻")
 	return nil
 }
 
-func (fServer *FileServer) push(f File) {
+func (fServer *FileServer) push(f *File) {
 	fServer.Files[f.UUID] = f
 	fServer.URLs[f.URL] = f.UUID
 	fServer.RecordsCount += 1
@@ -154,11 +154,11 @@ func (fServer *FileServer) push(f File) {
 // but this can be done later..
 func (fServer *FileServer) exists(fileHash string) bool {
 	for _, file := range fServer.Files {
-		if strings.Compare(file.UUID, fileHash) == 0 {
+		if file.UUID == fileHash {
 			return true
 		}
 	}
-
+	fmt.Println("File doesn't exist")
 	return false
 }
 
@@ -169,7 +169,7 @@ func (fServer *FileServer) findByURL(url string) *File {
 		return nil
 	}
 	file := fServer.Files[uuid]
-	return &file
+	return file
 }
 
 func (fServer *FileServer) findByUUID(uuid string) *File {
@@ -177,7 +177,7 @@ func (fServer *FileServer) findByUUID(uuid string) *File {
 	if !ok {
 		return nil
 	} else {
-		return &file
+		return file
 	}
 }
 
@@ -205,7 +205,7 @@ func (fServer *FileServer) NewFile(tmpHash string) (*File, error) {
 	hash := sha256.Sum256(contents)
 	uuid := encodeToString(hash[:])
 	if fServer.exists(uuid) {
-		return fServer.findByURL(tmpHash), &FileExists{}
+		return fServer.findByUUID(uuid), &FileExists{}
 	}
 
 	// Set the UUID for the new file!

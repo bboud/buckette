@@ -21,7 +21,7 @@ const (
 	NewLine = "\n"
 )
 
-func LogPrint(s string) string {
+func Print(s string) string {
 	var b strings.Builder
 
 	b.WriteString(White)
@@ -35,7 +35,7 @@ func LogPrint(s string) string {
 	return b.String()
 }
 
-func LogConnection(req *http.Request) string {
+func Connection(req *http.Request) string {
 	var b strings.Builder
 
 	b.WriteString(White)
@@ -60,7 +60,7 @@ func LogConnection(req *http.Request) string {
 	return b.String()
 }
 
-func LogSuccess(s string) string {
+func Success(s string) string {
 	var b strings.Builder
 
 	b.WriteString(Green)
@@ -74,7 +74,7 @@ func LogSuccess(s string) string {
 	return b.String()
 }
 
-func LogWarning(what string, where string, err error) string {
+func Warning(what string, where string, err error) string {
 	var b strings.Builder
 
 	b.WriteString(Yellow)
@@ -108,7 +108,7 @@ func LogWarning(what string, where string, err error) string {
 	return b.String()
 }
 
-func LogFatal(what string, where string, err error) string {
+func Fatal(what string, where string, err error) string {
 	var b strings.Builder
 
 	b.WriteString(Yellow)

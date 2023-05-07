@@ -8,9 +8,6 @@ import (
 	"testing"
 )
 
-// fServer := newFileServer()
-// go fServer.handleNewFiles()
-// fServer.initialize()
 func TestNewFileServer(t *testing.T) {
 	result := NewFileServer()
 
@@ -49,7 +46,7 @@ func TestNewFile(t *testing.T) {
 	defer os.Remove(TmpDir + "DAT_" + url)
 
 	uuid := sha256.Sum256([]byte("This is a test file"))
-	fServer.push(File{
+	fServer.push(&File{
 		URL:  url,
 		UUID: encodeToString(uuid[:]),
 	})
@@ -129,7 +126,7 @@ func TestExists(t *testing.T) {
 
 	// Put onto the cache
 	uuid := sha256.Sum256([]byte("This is a test file"))
-	fServer.push(File{
+	fServer.push(&File{
 		UUID: encodeToString(uuid[:]),
 	})
 
@@ -158,7 +155,7 @@ func TestFindByURL(t *testing.T) {
 		t.Error(err)
 	}
 
-	fServer.push(File{
+	fServer.push(&File{
 		URL: url,
 	})
 
@@ -224,9 +221,12 @@ func TestLoadFromDisk(t *testing.T) {
 		t.Error(err)
 	}
 
-	//
-	//if fServer.Files[]
-
+	file := fServer.findByUUID("Lpl1hUiXKo6IIq1H+hAX*3Lwbz*2oBaFH0XDmHMrxQw")
+	if file == nil {
+		t.Error("File came back nil and thus was not found")
+	} else {
+		t.Log("Successfully loaded from disk")
+	}
 }
 
 func TestInitialize(t *testing.T) {
@@ -238,7 +238,7 @@ func TestInitialize(t *testing.T) {
 func TestFindByUUID(t *testing.T) {
 	fServer := NewFileServer()
 
-	fServer.push(File{
+	fServer.push(&File{
 		UUID: "not an actual uuid",
 	})
 

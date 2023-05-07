@@ -5,15 +5,15 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/bboud/buckette/logger"
+	"buckette/logger"
 )
 
 const (
-	SiteFiles = "./frontend/dist"
+	SiteFiles = "./html"
 )
 
 func (fServer *FileServer) HandleDownload(rw http.ResponseWriter, req *http.Request) {
-	logger.LogConnection(req)
+	logger.Connection(req)
 
 	file := fServer.findByURL(req.RequestURI[1:])
 	if file != nil {
@@ -22,7 +22,7 @@ func (fServer *FileServer) HandleDownload(rw http.ResponseWriter, req *http.Requ
 
 		content, err := os.ReadFile(FileStoreDir + file.UUID)
 		if err != nil {
-			logger.LogWarning(
+			logger.Warning(
 				"Unable to read file "+file.FileName,
 				"fileserver.HandleDownload",
 				err,
