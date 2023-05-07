@@ -1,23 +1,24 @@
-var inputForm = document.getElementById('file_form');
-inputForm.addEventListener("submit", function (e) {
+$('#file_form').submit(function (e) { 
     e.preventDefault();
-    var fileInput = document.getElementById('file_input');
-    fileInput.classList.add('disabled')
+    $('#file_input').attr('disabled', 'disabled');
+    let fileInputs = $('#file_input').prop('files')
 
-    for (var i = 0; i < fileInput.files.length; i++) {
-        var fileForm = new FormData();
-        fileForm.append('file', fileInput.files[i]);
-        fetch('/upl', {
-            method: 'POST',
+    let formData = new FormData()
+    promises = []
+
+    for(let i=0; i < fileInputs.length; i++){
+        formData.append('file', fileInputs[i])
+        promises.push(fetch('/upl', {
+            method: "post",
             headers: {
-                'File-Name': fileInput.files[i].name,
-                'File-Size': fileInput.files[i].size,
-                'File-Type': fileInput.files[i].type,
+                'File-Name': fileInputs[i].name,
+                'File-Size': fileInputs[i].size,
+                'File-Type': fileInputs[i].type,
             },
-            body: fileForm
-        }).then(function (response) {
-            console.log(response);
-        });
+            body: formData,
+        }));
     }
-    fileInput.classList.remove('disabled')
+    Promise.all(promises).then(()=>{
+        $('#file_input').removeAttr('disabled');
+    })
 });
