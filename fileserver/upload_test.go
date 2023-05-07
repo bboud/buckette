@@ -63,7 +63,7 @@ func TestWriteRecord(t *testing.T) {
 		t.Error(err)
 	}
 
-	err = writeRecord(&file)
+	err = fServer.writeRecord(&file)
 	if err != nil {
 		t.Error(err)
 	}

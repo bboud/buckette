@@ -46,7 +46,7 @@ func TestNewFile(t *testing.T) {
 	defer os.Remove(TmpDir + "DAT_" + url)
 
 	uuid := sha256.Sum256([]byte("This is a test file"))
-	fServer.push(File{
+	fServer.push(&File{
 		URL:  url,
 		UUID: encodeToString(uuid[:]),
 	})
@@ -126,7 +126,7 @@ func TestExists(t *testing.T) {
 
 	// Put onto the cache
 	uuid := sha256.Sum256([]byte("This is a test file"))
-	fServer.push(File{
+	fServer.push(&File{
 		UUID: encodeToString(uuid[:]),
 	})
 
@@ -155,7 +155,7 @@ func TestFindByURL(t *testing.T) {
 		t.Error(err)
 	}
 
-	fServer.push(File{
+	fServer.push(&File{
 		URL: url,
 	})
 
@@ -238,7 +238,7 @@ func TestInitialize(t *testing.T) {
 func TestFindByUUID(t *testing.T) {
 	fServer := NewFileServer()
 
-	fServer.push(File{
+	fServer.push(&File{
 		UUID: "not an actual uuid",
 	})
 
