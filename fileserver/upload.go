@@ -134,11 +134,10 @@ func (fServer *FileServer) HandleUploadPart(rw http.ResponseWriter, p *multipart
 		file.ContentType = contentType
 		file.Uploaded = time.Now()
 		fServer.writeRecord(file)
+		logger.Success("Successfully saved " + file.FileName + " in " + time.Since(t).String())
 	}
 
 	cleanTmp(url)
-
-	logger.Success("Successfully saved " + file.FileName + " in " + time.Since(t).String())
 
 	data, err := json.Marshal(uplResponse)
 	if err != nil {
