@@ -1,10 +1,21 @@
+
+function reset() {
+    $('.upload_removeable').remove()
+    $('#file_input').removeAttr('disabled')
+    $('#file_submit').removeAttr('disabled')
+}
+
+function uploading() {
+    $('#file_submit').attr('disabled', 'disabled');
+    $('#file_input').attr('disabled', 'disabled');
+}
+
 $('#file_form').submit(function (e) {
     e.preventDefault();
 
-    //$('#file_input').attr('disabled', 'disabled');
-    $('#file_input').fadeOut()
-
     let fileInputs = $('#file_input').prop('files')
+
+    uploading()
 
     promises = []
 
@@ -13,16 +24,19 @@ $('#file_form').submit(function (e) {
     }
     Promise.all(promises).then((values) => {
         console.log(values)
-        $('#file_input').val('');
-        $('#file_input').removeAttr('disabled');
+        // $('#file_input').val('');
+        // $('#file_input').removeAttr('disabled');
     }).catch((e) => {
-        $('#file_input').val('');
-        $('#file_input').removeAttr('disabled');
+        reset()
         console.log(e)
     })
 });
 
 var uploadFile = function (file, index) {
+    if (file.type == '') {
+        file.type = 'application/octet-stream'
+    }
+    console.log(file.type)
     var $progress_bar = $(`
         <div class="col-12 text-start upload_removeable">
             ${file.name}
@@ -47,6 +61,9 @@ var uploadFile = function (file, index) {
                     $(`#progress_bar_${index}_bar`).width(`${percentComplete}%`);
                 }
             }
+            xhr.onloadend = (p) =>{
+                $(`#progress_bar_${index}_bar`).addClass('bg-success')
+            }
             return xhr
         },
         type: "POST",
@@ -63,8 +80,6 @@ var uploadFile = function (file, index) {
     });
 }
 
-$('#modal').on('hide.bs.modal', ()=>{
-    console.log('this is called')
-    $('.upload_removeable').remove()
-    $('#file_input').show()
+$('#modal').on('hide.bs.modal', () => {
+    reset()
 });
