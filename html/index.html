@@ -51,19 +51,20 @@
               <div class="modal-content">
                 <div class="modal-header">
                   <h5 class="modal-title">Upload a file</h5>
-                  <button type="button" class="btn-close"
+                  <button id="upload_modal_close" type="button" class="btn-close"
                     data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form id="file_form" method="post" enctype="multipart/form-data"
                   action="#">
                   <div class="modal-body">
-                    <input class="form-control" id="file_input" type="file"
-                      multiple />
-                      <div id="progress_row" class="row gy-3 mt-1">
+
+                      <div id="progress_row" class="row gy-3">
+                        <input class="form-control" id="file_input" type="file"
+                        multiple />
                       </div>
                   </div>
                   <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary"
+                    <button id="upload_modal_close" type="button" class="btn btn-secondary"
                       data-bs-dismiss="modal">Close</button>
                     <button id="file_submit" class="btn btn-primary"
                       type="submit">Upload</button>

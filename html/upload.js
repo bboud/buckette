@@ -1,7 +1,9 @@
 $('#file_form').submit(function (e) {
     e.preventDefault();
 
-    $('#file_input').attr('disabled', 'disabled');
+    //$('#file_input').attr('disabled', 'disabled');
+    $('#file_input').fadeOut()
+
     let fileInputs = $('#file_input').prop('files')
 
     promises = []
@@ -9,57 +11,60 @@ $('#file_form').submit(function (e) {
     for (let i = 0; i < fileInputs.length; i++) {
         promises.push(uploadFile(fileInputs[i], i))
     }
-    Promise.all(promises).then((e) => {
-        console.log(e)
+    Promise.all(promises).then((values) => {
+        console.log(values)
         $('#file_input').val('');
         $('#file_input').removeAttr('disabled');
     }).catch((e) => {
+        $('#file_input').val('');
+        $('#file_input').removeAttr('disabled');
         console.log(e)
     })
 });
 
-function uploadFile(file, index) {
-    console.log(file)
-    return new Promise((resolve, rejectt) => {
-        var $progress_bar = $(`
-        <div id="progress_bar_${index}" class="col-12 text-start">
-            File name
+var uploadFile = function (file, index) {
+    var $progress_bar = $(`
+        <div class="col-12 text-start upload_removeable">
+            ${file.name}
             <div class="progress" role="progressbar" aria-label="File progress bar for ${file.name}" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100">
-            <div class="progress-bar" style="width: 0%"></div>
+            <div id="progress_bar_${index}_bar" class="progress-bar" style="width: 0%"></div>
             </div>
         </div>
         `)
 
-        let formData = new FormData()
+    let formData = new FormData()
 
-        $('#progress_row').append($progress_bar)
-        formData.append('file', file)
+    $('#progress_row').append($progress_bar)
+    formData.append('file', file)
 
-        $.ajax({
-            xhr: ()=>{
-                var xhr = new window.XMLHttpRequest();
-                xhr.addEventListener("progress", (evt) => {
-                    if (evt.lengthComputable) {
-                        var percentComplete = (evt.loaded / evt.total) * 100;
-                        // Place upload progress bar visibility code here
-                    }
-                }, false)
-                return xhr
-            },
-            type: "POST",
-            url: "/upl",
-            data: formData,
-            contentType: false,
-            processData: false,
-            headers: {
-                'File-Name': file.name,
-                'File-Type': file.type,
-                'File-Size': file.size,
-            },
-            dataType: "json",
-            success: function (response) {
-                console.log(response)
-            },
-        });
-    })
+    return $.ajax({
+        xhr: () => {
+            var xhr = new XMLHttpRequest();
+            xhr.onprogress = (p) => {
+                if (p.lengthComputable) {
+                    console.log(p)
+                    var percentComplete = (p.loaded / p.total) * 100;
+                    $(`#progress_bar_${index}_bar`).width(`${percentComplete}%`);
+                }
+            }
+            return xhr
+        },
+        type: "POST",
+        url: "/upl",
+        data: formData,
+        contentType: false,
+        processData: false,
+        headers: {
+            'File-Name': file.name,
+            'File-Type': file.type,
+            'File-Size': file.size,
+        },
+        dataType: "json",
+    });
 }
+
+$('#modal').on('hide.bs.modal', ()=>{
+    console.log('this is called')
+    $('.upload_removeable').remove()
+    $('#file_input').show()
+});

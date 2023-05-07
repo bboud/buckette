@@ -151,6 +151,7 @@ func (fServer *FileServer) HandleUploadPart(rw http.ResponseWriter, p *multipart
 	}
 
 	rw.Write(data)
+	req.Body.Close()
 }
 
 func copyToFileSystem(reader io.Reader, url string) error {
