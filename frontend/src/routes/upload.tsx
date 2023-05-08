@@ -2,7 +2,7 @@ import { SignIn, useUser } from '@clerk/clerk-react'
 import { animated as a, useSpring } from '@react-spring/web'
 import { useNavigate } from 'react-router-dom'
 
-import StyledDropzone from '../components/StyledDropzone'
+import UploadComponent from '../components/UploadComponent'
 
 import Dropzone from 'react-dropzone'
 import { useMutation } from '@tanstack/react-query'
@@ -24,10 +24,10 @@ function Upload() {
   return (
     <a.div
       style={uploadSpring}
-      className='absolute z-10 bg-zinc-900/20 backdrop-blur-sm w-full h-full'>
+      className='absolute bg-zinc-900/20 backdrop-blur-sm w-full h-full grid justify-center'>
       {isSignedIn && (
-        <div className='w-full h-full flex flex-col justify-center items-center'>
-          <StyledDropzone />
+        <div className='left-28 relative'>
+          <UploadComponent />
         </div>
       )}
     </a.div>
