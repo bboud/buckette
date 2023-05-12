@@ -166,6 +166,7 @@ func (fServer *FileServer) exists(fileHash string) bool {
 func (fServer *FileServer) findByURL(url string) *File {
 	uuid, ok := fServer.URLs[url]
 	if !ok {
+		fmt.Print(uuid)
 		return nil
 	}
 	file := fServer.Files[uuid]

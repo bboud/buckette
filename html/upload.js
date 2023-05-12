@@ -1,4 +1,3 @@
-
 function reset() {
     $('.upload_removeable').remove()
     $('#file_input').removeAttr('disabled')
@@ -61,7 +60,7 @@ var uploadFile = function (file, index) {
                     $(`#progress_bar_${index}_bar`).width(`${percentComplete}%`);
                 }
             }
-            xhr.onloadend = (p) =>{
+            xhr.onloadend = (p) => {
                 $(`#progress_bar_${index}_bar`).addClass('bg-success')
             }
             return xhr
