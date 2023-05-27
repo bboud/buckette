@@ -7,10 +7,11 @@ const print = std.debug.print;
 //Route function signature
 const RouteFnPtr = *const fn (response: *http.Server.Response) void;
 
+//16 bytes
 pub const Route = struct {
     method: http.Method,
-    target: []const u8,
     route: RouteFnPtr,
+    fileserver: bool,
 };
 
 pub const Router = struct {
@@ -24,20 +25,28 @@ pub const Router = struct {
         self.deinit();
     }
 
-    pub fn addRoute(self: *Router, target: []const u8, method: http.Method, fnPtr: RouteFnPtr) !void {
-        try self.routes.put(target, .{
-            .method = method,
-            .target = target,
-            .route = fnPtr,
-        });
+    pub fn addRoute(self: *Router, target: []const u8, r: Route) !void {
+        try self.routes.put(target, r);
     }
 
     pub fn route(self: *Router, response: *http.Server.Response) !void {
-        const index = mem.indexOf(u8, response.request.target[1..], "/") orelse response.request.target.len;
-        const slice = response.request.target[1..index];
+        const request = response.request;
+        const target = request.target;
 
-        const funcToCall = self.routes.get(slice) orelse CannedResponses.failed404;
-        funcToCall();
+        //Search on the target skipping the first '/'
+        const i = mem.indexOf(u8, target[1..], "/") orelse target.len;
+
+        //In the slice, we return the whole thing upto the index
+        const slice = target[0..i];
+
+        // Try to get the route and if not, load index as a fileserver. Failure to get index is a panic.
+        const foundRoute: Route = self.routes.get(slice) orelse self.routes.get("/").?;
+
+        if (foundRoute.method == request.method) {
+            foundRoute.route(response);
+        } else {
+            CannedResponses.failed404(response);
+        }
     }
 };
 
@@ -46,15 +55,15 @@ pub const CannedResponses = struct {
     // Returns generic 200 with no data
     pub fn default(response: *http.Server.Response) void {
         response.status = http.Status.ok;
-        response.headers.append("connection", "close") catch return;
-        response.do() catch return;
-        response.finish() catch return;
+        response.headers.append("connection", "close") catch unreachable;
+        response.do() catch unreachable;
+        response.finish() catch unreachable;
     }
 
     pub fn failed404(response: *http.Server.Response) void {
         response.status = http.Status.not_found;
-        response.headers.append("connection", "close") catch return;
-        response.do() catch return;
-        response.finish() catch return;
+        response.headers.append("connection", "close") catch unreachable;
+        response.do() catch unreachable;
+        response.finish() catch unreachable;
     }
 };

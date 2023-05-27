@@ -6,18 +6,7 @@ const mem = std.mem;
 const print = std.debug.print;
 
 const router = @import("router.zig");
-
-fn index(response: *http.Server.Response) void {
-    const body = "Index!";
-
-    //TODO: Handle the errors lol
-    response.transfer_encoding.content_length = body.len;
-    response.headers.append("content-type", "text/plain") catch return;
-    response.do() catch return;
-
-    _ = response.writeAll(body) catch return;
-    response.finish() catch return;
-}
+const setup = @import("routes/setup.zig").setup;
 
 pub fn main() !void {
     var aAllocator = heap.ArenaAllocator.init(heap.page_allocator);
@@ -26,10 +15,11 @@ pub fn main() !void {
     var server = http.Server.init(aAllocator.allocator(), .{});
     defer server.deinit();
 
-    var r = router.Router.init(aAllocator.allocator());
+    var buffer: [512]u8 = undefined;
+    var fbaAllocator = heap.FixedBufferAllocator.init(&buffer);
+    var r = router.Router.init(fbaAllocator.allocator());
     defer r.deinit();
-
-    try r.addRoute("/", http.Method.GET, index);
+    try setup(&r);
 
     const address = std.net.Address.parseIp4("127.0.0.1", 8080) catch unreachable;
     try server.listen(address);
