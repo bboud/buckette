@@ -1,31 +1,25 @@
 const std = @import("std");
 const mem = std.mem;
 const http = std.http;
+const fs = std.fs;
 
 const print = std.debug.print;
 
 //Route function signature
 const RouteFnPtr = *const fn (response: *http.Server.Response) void;
 
-//16 bytes
-pub const Route = struct {
-    method: http.Method,
-    route: RouteFnPtr,
-    fileserver: bool,
-};
-
 pub const Router = struct {
-    routes: std.StringHashMap(Route),
+    routes: std.StringHashMap(RouteFnPtr),
 
     pub fn init(allocator: mem.Allocator) Router {
-        return .{ .routes = std.StringHashMap(Route).init(allocator) };
+        return .{ .routes = std.StringHashMap(RouteFnPtr).init(allocator) };
     }
 
     pub fn deinit(self: *Router) void {
         self.deinit();
     }
 
-    pub fn addRoute(self: *Router, target: []const u8, r: Route) !void {
+    pub fn addRoute(self: *Router, target: []const u8, r: RouteFnPtr) !void {
         try self.routes.put(target, r);
     }
 
@@ -39,31 +33,27 @@ pub const Router = struct {
         //In the slice, we return the whole thing upto the index
         const slice = target[0..i];
 
-        // Try to get the route and if not, load index as a fileserver. Failure to get index is a panic.
-        const foundRoute: Route = self.routes.get(slice) orelse self.routes.get("/").?;
+        // Try to get the route and if not, load index as a fileserver. Failure to get index results in canned response
+        const foundRoute: RouteFnPtr = self.routes.get(slice) orelse self.routes.get("/") orelse noDefault;
 
-        if (foundRoute.method == request.method) {
-            foundRoute.route(response);
-        } else {
-            CannedResponses.failed404(response);
-        }
+        foundRoute(response);
     }
 };
 
-//TODO: Handle errors correctly
-pub const CannedResponses = struct {
-    // Returns generic 200 with no data
-    pub fn default(response: *http.Server.Response) void {
-        response.status = http.Status.ok;
-        response.headers.append("connection", "close") catch unreachable;
-        response.do() catch unreachable;
-        response.finish() catch unreachable;
-    }
+fn noDefault(response: *http.Server.Response) void {
+    const cwd = fs.cwd();
+    const file = cwd.openFile("html/no_default.html", .{}) catch unreachable;
+    const stat = file.stat() catch unreachable;
+    const size = stat.size;
 
-    pub fn failed404(response: *http.Server.Response) void {
-        response.status = http.Status.not_found;
-        response.headers.append("connection", "close") catch unreachable;
-        response.do() catch unreachable;
-        response.finish() catch unreachable;
-    }
-};
+    var buffer: [1024]u8 = undefined;
+    const read = file.readAll(&buffer) catch unreachable;
+
+    response.status = http.Status.ok;
+    response.transfer_encoding = .{ .content_length = size };
+    response.headers.append("connection", "close") catch unreachable;
+    response.do() catch unreachable;
+
+    response.writeAll(buffer[0..read]) catch unreachable;
+    response.finish() catch unreachable;
+}
