@@ -6,24 +6,25 @@ const fs = std.fs;
 const print = std.debug.print;
 
 //Route function signature
-const RouteFnPtr = *const fn (response: *http.Server.Response) void;
+const RouteFnPtr = *const fn (response: *http.Server.Response, allocator: mem.Allocator) void;
 
 pub const Router = struct {
     routes: std.StringHashMap(RouteFnPtr),
+    alloc: mem.Allocator,
 
     pub fn init(allocator: mem.Allocator) Router {
-        return .{ .routes = std.StringHashMap(RouteFnPtr).init(allocator) };
+        return .{ .routes = std.StringHashMap(RouteFnPtr).init(allocator), .alloc = allocator };
     }
 
     pub fn deinit(self: *Router) void {
-        self.deinit();
+        self.routes.deinit();
     }
 
     pub fn addRoute(self: *Router, target: []const u8, r: RouteFnPtr) !void {
         try self.routes.put(target, r);
     }
 
-    pub fn route(self: *Router, response: *http.Server.Response) !void {
+    pub fn route(self: *Router, response: *http.Server.Response) void {
         const request = response.request;
         const target = request.target;
 
@@ -36,24 +37,36 @@ pub const Router = struct {
         // Try to get the route and if not, load index as a fileserver. Failure to get index results in canned response
         const foundRoute: RouteFnPtr = self.routes.get(slice) orelse self.routes.get("/") orelse noDefault;
 
-        foundRoute(response);
+        foundRoute(response, self.alloc);
     }
 };
 
-fn noDefault(response: *http.Server.Response) void {
-    const cwd = fs.cwd();
-    const file = cwd.openFile("html/no_default.html", .{}) catch unreachable;
-    const stat = file.stat() catch unreachable;
-    const size = stat.size;
-
-    var buffer: [1024]u8 = undefined;
-    const read = file.readAll(&buffer) catch unreachable;
+fn noDefault(response: *http.Server.Response, allocator: mem.Allocator) void {
+    _ = allocator;
+    const noDefaultPage =
+        \\<!doctype html>
+        \\<html lang="en">
+        \\  <head>
+        \\    <title>No Default Route</title>
+        \\  </head>
+        \\  <body>
+        \\    <main>
+        \\       <div>
+        \\          <h1>Uh Oh!</h1>
+        \\          <p>
+        \\            It looks like you have no default route on "/".. You are seeing this to indicate that you should add a default route!
+        \\          </p>
+        \\      </div>
+        \\    </main>
+        \\  </body>
+        \\</html>
+    ;
 
     response.status = http.Status.ok;
-    response.transfer_encoding = .{ .content_length = size };
-    response.headers.append("connection", "close") catch unreachable;
-    response.do() catch unreachable;
+    response.transfer_encoding = .{ .content_length = noDefaultPage.len };
+    response.headers.append("connection", "close") catch return;
+    response.do() catch return;
 
-    response.writeAll(buffer[0..read]) catch unreachable;
-    response.finish() catch unreachable;
+    response.writeAll(noDefaultPage) catch return;
+    response.finish() catch return;
 }

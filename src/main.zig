@@ -40,6 +40,6 @@ pub fn main() !void {
         defer _ = response.reset();
         try response.wait();
 
-        try r.route(&response);
+        r.route(&response);
     }
 }

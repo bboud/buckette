@@ -1,7 +1,7 @@
 const http = @import("std").http;
 
 const router = @import("../router.zig").Router;
-const index = @import("fileserver.zig").fileserver;
+const index = @import("../fileserver.zig").fileserver;
 
 // This is where you will add your routes!
 pub fn setup(r: *router) !void {
