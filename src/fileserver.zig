@@ -21,8 +21,7 @@ pub fn fileserver(response: *http.Server.Response, allocator: mem.Allocator) voi
     const cwd = fs.cwd();
     const fileStat = cwd.statFile(filePath) catch |err| switch (err) {
         error.FileNotFound => {
-            serverStatus(response, http.Status.not_found) catch return;
-            response.finish() catch return;
+            error404(response, allocator) catch unreachable;
             return;
         },
         else => @panic("Unhandled error"),
@@ -32,18 +31,16 @@ pub fn fileserver(response: *http.Server.Response, allocator: mem.Allocator) voi
 
     switch (fileStat.kind) {
         kind.file => {
-            serveFile(response, filePath, http.Status.ok, allocator) catch {
-                serverStatus(response, http.Status.internal_server_error) catch return;
-                response.finish() catch return;
-                return;
+            serveFile(response, filePath, http.Status.ok, allocator) catch |err| {
+                std.debug.print("Unhandled error: {}", .{err});
+                unreachable;
             };
         },
         kind.directory => {
             std.debug.print("TODO", .{});
         },
         else => {
-            serveFile(response, "html/404.html", http.Status.not_found, allocator) catch return;
-            response.finish() catch return;
+            error404(response, allocator) catch return;
             return;
         },
     }
@@ -69,4 +66,56 @@ fn serveFile(response: *http.Server.Response, filePath: []const u8, status: http
 fn serverStatus(response: *http.Server.Response, status: http.Status) !void {
     response.status = status;
     try response.do();
+}
+
+fn error404(response: *http.Server.Response, allocator: mem.Allocator) !void {
+    // See if the requester accpets html back, and if so, serve the 404 page!
+    const listOptional = response.request.headers.getEntries(allocator, "Accept") catch @panic("Unable to allocate memory to get headers");
+    if (listOptional != null) {
+        const list = listOptional.?;
+        const acceptHTML = mem.containsAtLeast(u8, list[0].value, 1, "text/html");
+        if (acceptHTML) {
+            serveFile(response, "html/404.html", http.Status.not_found, allocator) catch |erri| switch (erri) {
+                error.FileNotFound => {
+                    noDefault404(response);
+                    return;
+                },
+                else => {
+                    std.debug.print("Unhandled error: {}", .{erri});
+                    unreachable;
+                },
+            };
+        }
+    } else {
+        try serverStatus(response, http.Status.not_found);
+    }
+}
+
+fn noDefault404(response: *http.Server.Response) void {
+    const noDefaultPage =
+        \\<!doctype html>
+        \\<html lang="en">
+        \\  <head>
+        \\    <title>No Default Route</title>
+        \\  </head>
+        \\  <body>
+        \\    <main>
+        \\       <div>
+        \\          <h1>404 Not Found</h1>
+        \\          <p>
+        \\            The file or directory could not be found.
+        \\          </p>
+        \\      </div>
+        \\    </main>
+        \\  </body>
+        \\</html>
+    ;
+
+    response.status = http.Status.ok;
+    response.transfer_encoding = .{ .content_length = noDefaultPage.len };
+    response.headers.append("connection", "close") catch return;
+    response.do() catch return;
+
+    response.writeAll(noDefaultPage) catch return;
+    response.finish() catch return;
 }

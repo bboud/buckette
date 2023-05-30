@@ -10,10 +10,9 @@ const RouteFnPtr = *const fn (response: *http.Server.Response, allocator: mem.Al
 
 pub const Router = struct {
     routes: std.StringHashMap(RouteFnPtr),
-    alloc: mem.Allocator,
 
     pub fn init(allocator: mem.Allocator) Router {
-        return .{ .routes = std.StringHashMap(RouteFnPtr).init(allocator), .alloc = allocator };
+        return .{ .routes = std.StringHashMap(RouteFnPtr).init(allocator) };
     }
 
     pub fn deinit(self: *Router) void {
@@ -24,7 +23,7 @@ pub const Router = struct {
         try self.routes.put(target, r);
     }
 
-    pub fn route(self: *Router, response: *http.Server.Response) void {
+    pub fn route(self: *Router, response: *http.Server.Response, allocator: mem.Allocator) void {
         const request = response.request;
         const target = request.target;
 
@@ -37,7 +36,7 @@ pub const Router = struct {
         // Try to get the route and if not, load index as a fileserver. Failure to get index results in canned response
         const foundRoute: RouteFnPtr = self.routes.get(slice) orelse self.routes.get("/") orelse noDefault;
 
-        foundRoute(response, self.alloc);
+        foundRoute(response, allocator);
     }
 };
 

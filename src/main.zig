@@ -15,6 +15,7 @@ pub fn main() !void {
     var server = http.Server.init(aAllocator.allocator(), .{});
     defer server.deinit();
 
+    // This FBA is used as the allocator for a StringHashMap to be fast for route lookups
     var buffer: [512]u8 = undefined;
     var fbaAllocator = heap.FixedBufferAllocator.init(&buffer);
     var r = router.Router.init(fbaAllocator.allocator());
@@ -40,6 +41,7 @@ pub fn main() !void {
         defer _ = response.reset();
         try response.wait();
 
-        r.route(&response);
+        // This route take an allocator for use in serving files and other things
+        r.route(&response, aAllocator.allocator());
     }
 }
