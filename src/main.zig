@@ -6,7 +6,7 @@ const mem = std.mem;
 const print = std.debug.print;
 
 const router = @import("router.zig");
-const setup = @import("routes/setup.zig").setup;
+const index = @import("fileserver.zig").fileserver;
 
 pub fn main() !void {
     var aAllocator = heap.ArenaAllocator.init(heap.page_allocator);
@@ -42,6 +42,11 @@ pub fn main() !void {
         try response.wait();
 
         // This route take an allocator for use in serving files and other things
+        // Errors are handling inside each route handler
         r.route(&response, aAllocator.allocator());
     }
+}
+
+fn setup(r: *router.Router) !void {
+    try r.addRoute("/", index);
 }

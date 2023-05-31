@@ -16,7 +16,6 @@ pub fn fileserver(response: *http.Server.Response, allocator: mem.Allocator) voi
     //Format the target together with the filedir
     var buffer: [128]u8 = undefined;
     const filePath = fmt.bufPrint(&buffer, fsDir, .{target}) catch @panic("URL format buffer too small");
-    std.debug.print("{s}\n", .{filePath});
 
     const cwd = fs.cwd();
     const fileStat = cwd.statFile(filePath) catch |err| switch (err) {
@@ -37,7 +36,7 @@ pub fn fileserver(response: *http.Server.Response, allocator: mem.Allocator) voi
             };
         },
         kind.directory => {
-            std.debug.print("TODO", .{});
+            serveIndexOrDirectory(response, filePath, http.Status.ok, allocator) catch unreachable;
         },
         else => {
             error404(response, allocator) catch return;
@@ -46,9 +45,87 @@ pub fn fileserver(response: *http.Server.Response, allocator: mem.Allocator) voi
     }
 }
 
+fn serveIndexOrDirectory(response: *http.Server.Response, filePath: []const u8, status: http.Status, allocator: mem.Allocator) !void {
+    const indexPathF = "{s}index.html";
+    var buffer: [128]u8 = undefined;
+    const indexPath = fmt.bufPrint(&buffer, indexPathF, .{filePath}) catch @panic("URL format buffer too small");
+    std.debug.print("{s}\n", .{indexPath});
+
+    const cwd = fs.cwd();
+    _ = cwd.statFile(indexPath) catch |err| switch (err) {
+        error.FileNotFound => {
+            try serveDirectory(response, filePath, status, allocator);
+            return;
+        },
+        else => @panic("Unhandled error"),
+    };
+
+    try serveFile(response, indexPath, status, allocator);
+}
+
+fn serveDirectory(response: *http.Server.Response, dirPath: []const u8, status: http.Status, allocator: mem.Allocator) !void {
+    const HTMLHead =
+        \\<!DOCTYPE html>
+        \\<html lang="en">
+        \\<head>
+        \\    <meta charset="UTF-8">
+        \\    <title>{s}</title>
+        \\</head>
+        \\<body>
+        \\    ------------------ <br>
+        \\    {s} <br>
+        \\    ------------------ <br>
+        \\    <ul> 
+        \\    
+        \\
+    ;
+
+    const listItem =
+        \\  <li>
+        \\      <a href="{s}"> {s} </a>
+        \\  </li>
+    ;
+
+    const HTMLFoot =
+        \\    </ul>
+        \\</body>
+        \\</html>
+    ;
+
+    var buffer: [HTMLHead.len + 128]u8 = undefined;
+    var html = fmt.bufPrint(&buffer, HTMLHead, .{ dirPath, dirPath }) catch unreachable;
+
+    const cwd = fs.cwd();
+    var dirIter = cwd.openIterableDir(dirPath, .{}) catch @panic("unhandled");
+    defer dirIter.close();
+
+    var iterator = dirIter.iterate();
+
+    while (try iterator.next()) |item| {
+        // Just reuse the buffer
+        var bufferi: [128]u8 = undefined;
+        const li = fmt.bufPrint(&bufferi, listItem, .{ item.name, item.name }) catch @panic("format buffer too small!");
+        const slice = [_][]const u8{ html, li };
+        html = mem.concat(allocator, u8, &slice) catch @panic("Cannot concat!");
+    }
+
+    const slice = [_][]const u8{ html, HTMLFoot };
+    html = mem.concat(allocator, u8, &slice) catch @panic("Cannot concat!");
+
+    response.status = status;
+    response.transfer_encoding = .{ .content_length = html.len };
+    try response.headers.append("connection", "close");
+    try response.do();
+
+    try response.writeAll(html);
+    try response.finish();
+}
+
 fn serveFile(response: *http.Server.Response, filePath: []const u8, status: http.Status, allocator: mem.Allocator) !void {
     const cwd = fs.cwd();
     const file = try cwd.openFile(filePath, .{});
+    defer file.close();
+
     const stat = try file.stat();
     const size = stat.size;
 
