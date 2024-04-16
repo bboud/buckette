@@ -7,12 +7,20 @@ const print = std.debug.print;
 
 const router = @import("router.zig");
 const index = @import("fileserver.zig").fileserver;
+const upload = @import("upload.zig").upload;
 
 pub fn main() !void {
-    var aAllocator = heap.ArenaAllocator.init(heap.page_allocator);
-    defer aAllocator.deinit();
+    var gpa = heap.GeneralPurposeAllocator(.{}){};
+    defer {
+        const check = gpa.deinit();
+        switch (check) {
+            heap.Check.ok => print("No mem lead detected", .{}),
+            heap.Check.leak => print("Mem leak!", .{}),
+        }
+    }
 
-    var server = http.Server.init(aAllocator.allocator(), .{});
+    var gpaAlloc = gpa.allocator();
+    var server = http.Server.init(gpaAlloc, .{});
     defer server.deinit();
 
     // This FBA is used as the allocator for a StringHashMap to be fast for route lookups
@@ -29,7 +37,7 @@ pub fn main() !void {
 
     while (true) {
         var response = server.accept(.{
-            .allocator = aAllocator.allocator(),
+            .allocator = gpaAlloc,
         }) catch |err| switch (err) {
             mem.Allocator.Error.OutOfMemory => break,
             else => {
@@ -43,10 +51,11 @@ pub fn main() !void {
 
         // This route take an allocator for use in serving files and other things
         // Errors are handling inside each route handler
-        r.route(&response, aAllocator.allocator());
+        r.route(&response, gpaAlloc);
     }
 }
 
 fn setup(r: *router.Router) !void {
     try r.addRoute("/", index);
+    try r.addRoute("/upld", upload);
 }

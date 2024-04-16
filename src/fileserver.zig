@@ -121,7 +121,7 @@ fn serveDirectory(response: *http.Server.Response, dirPath: []const u8, status: 
     try response.finish();
 }
 
-fn serveFile(response: *http.Server.Response, filePath: []const u8, status: http.Status, allocator: mem.Allocator) !void {
+pub fn serveFile(response: *http.Server.Response, filePath: []const u8, status: http.Status, allocator: mem.Allocator) !void {
     const cwd = fs.cwd();
     const file = try cwd.openFile(filePath, .{});
     defer file.close();
@@ -140,7 +140,7 @@ fn serveFile(response: *http.Server.Response, filePath: []const u8, status: http
     try response.finish();
 }
 
-fn serverStatus(response: *http.Server.Response, status: http.Status) !void {
+pub fn serverStatus(response: *http.Server.Response, status: http.Status) !void {
     response.status = status;
     try response.do();
 }
