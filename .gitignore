@@ -2,3 +2,5 @@
 frontend/.yarn
 frontend/dist
 frontend/node_modules
+zig-cache/
+zig-out/
