@@ -4,6 +4,7 @@ const http = std.http;
 const fs = std.fs;
 
 const print = std.debug.print;
+const html = @import("html.zig");
 
 //Route function signature
 const RouteFnPtr = *const fn (response: *http.Server.Response, allocator: mem.Allocator) void;
@@ -19,14 +20,11 @@ pub const Router = struct {
         self.routes.deinit();
     }
 
-    pub fn addRoute(self: *Router, target: []const u8, r: RouteFnPtr) !void {
-        try self.routes.put(target, r);
+    pub fn addRoute(self: *Router, target: []const u8, r: RouteFnPtr) mem.Allocator.Error!void {
+        return self.routes.put(target, r);
     }
 
-    pub fn route(self: *Router, response: *http.Server.Response, allocator: mem.Allocator) void {
-        const request = response.request;
-        const target = request.target;
-
+    pub fn route(self: *Router, target: []const u8, response: *http.Server.Response, allocator: mem.Allocator) void {
         //Search on the target skipping the first '/'
         const i = mem.indexOf(u8, target[1..], "/") orelse target.len;
 
@@ -40,32 +38,12 @@ pub const Router = struct {
     }
 };
 
-fn noDefault(response: *http.Server.Response, allocator: mem.Allocator) void {
-    _ = allocator;
-    const noDefaultPage =
-        \\<!doctype html>
-        \\<html lang="en">
-        \\  <head>
-        \\    <title>No Default Route</title>
-        \\  </head>
-        \\  <body>
-        \\    <main>
-        \\       <div>
-        \\          <h1>Uh Oh!</h1>
-        \\          <p>
-        \\            It looks like you have no default route on "/".. You are seeing this to indicate that you should add a default route!
-        \\          </p>
-        \\      </div>
-        \\    </main>
-        \\  </body>
-        \\</html>
-    ;
-
+fn noDefault(response: *http.Server.Response, _: mem.Allocator) void {
     response.status = http.Status.ok;
-    response.transfer_encoding = .{ .content_length = noDefaultPage.len };
+    response.transfer_encoding = .{ .content_length = html.NODEFAULT.len };
     response.headers.append("connection", "close") catch return;
     response.do() catch return;
 
-    response.writeAll(noDefaultPage) catch return;
+    response.writeAll(html.NODEFAULT) catch return;
     response.finish() catch return;
 }

@@ -6,16 +6,16 @@ const io = std.io;
 const heap = std.heap;
 const mem = std.mem;
 
+const html = @import("html.zig");
+const config = @import("config.zig");
+
 pub fn fileserver(response: *http.Server.Response, allocator: mem.Allocator) void {
     const target = response.request.target;
 
-    //TODO: handle this better
-    if (target.len > 128) return;
-    const fsDir = "html{s}";
-
-    //Format the target together with the filedir
     var buffer: [128]u8 = undefined;
-    const filePath = fmt.bufPrint(&buffer, fsDir, .{target}) catch @panic("URL format buffer too small");
+    const filePath = fmt.bufPrint(&buffer, "{s}{s}", .{ config.WWWPATH, target }) catch unreachable;
+
+    std.log.debug("filepath: {s}", .{filePath});
 
     const cwd = fs.cwd();
     const fileStat = cwd.statFile(filePath) catch |err| switch (err) {
@@ -23,7 +23,10 @@ pub fn fileserver(response: *http.Server.Response, allocator: mem.Allocator) voi
             error404(response, allocator) catch unreachable;
             return;
         },
-        else => @panic("Unhandled error"),
+        else => {
+            std.debug.print("Unhandled error: {}", .{err});
+            unreachable;
+        },
     };
 
     const kind = fs.File.Kind;
@@ -31,12 +34,19 @@ pub fn fileserver(response: *http.Server.Response, allocator: mem.Allocator) voi
     switch (fileStat.kind) {
         kind.file => {
             serveFile(response, filePath, http.Status.ok, allocator) catch |err| {
-                std.debug.print("Unhandled error: {}", .{err});
-                unreachable;
+                switch (err) {
+                    error.ConnectionResetByPeer => {
+                        std.log.warn("Connection reset by peer: {}", .{err});
+                    },
+                    else => {
+                        std.debug.print("Unhandled error: {}", .{err});
+                        unreachable;
+                    },
+                }
             };
         },
         kind.directory => {
-            serveIndexOrDirectory(response, filePath, http.Status.ok, allocator) catch unreachable;
+            serveIndexOrDirectory(response, filePath, allocator);
         },
         else => {
             error404(response, allocator) catch return;
@@ -45,58 +55,48 @@ pub fn fileserver(response: *http.Server.Response, allocator: mem.Allocator) voi
     }
 }
 
-fn serveIndexOrDirectory(response: *http.Server.Response, filePath: []const u8, status: http.Status, allocator: mem.Allocator) !void {
-    const indexPathF = "{s}index.html";
+fn serveIndexOrDirectory(response: *http.Server.Response, filePath: []const u8, allocator: mem.Allocator) void {
     var buffer: [128]u8 = undefined;
-    const indexPath = fmt.bufPrint(&buffer, indexPathF, .{filePath}) catch @panic("URL format buffer too small");
-    std.debug.print("{s}\n", .{indexPath});
+    const indexPath = fmt.bufPrint(&buffer, "{s}/index.html", .{filePath}) catch unreachable;
 
     const cwd = fs.cwd();
     _ = cwd.statFile(indexPath) catch |err| switch (err) {
         error.FileNotFound => {
-            try serveDirectory(response, filePath, status, allocator);
+            serveDirectory(response, filePath, allocator) catch |erri| {
+                std.log.err("Error Serving Directory: {}", .{erri});
+            };
             return;
         },
-        else => @panic("Unhandled error"),
+        else => unreachable,
     };
 
-    try serveFile(response, indexPath, status, allocator);
+    serveFile(response, indexPath, http.Status.ok, allocator) catch |err| {
+        std.log.err("Error serving file: {}", .{err});
+    };
 }
 
-fn serveDirectory(response: *http.Server.Response, dirPath: []const u8, status: http.Status, allocator: mem.Allocator) !void {
-    const HTMLHead =
-        \\<!DOCTYPE html>
-        \\<html lang="en">
-        \\<head>
-        \\    <meta charset="UTF-8">
-        \\    <title>{s}</title>
-        \\</head>
-        \\<body>
-        \\    ------------------ <br>
-        \\    {s} <br>
-        \\    ------------------ <br>
-        \\    <ul> 
-        \\    
-        \\
-    ;
+fn serveDirectory(response: *http.Server.Response, filePath: []const u8, allocator: mem.Allocator) !void {
+    var target = response.request.target;
 
-    const listItem =
-        \\  <li>
-        \\      <a href="{s}"> {s} </a>
-        \\  </li>
-    ;
+    // Remove the leading '/' from the path
+    target = target[1..];
 
-    const HTMLFoot =
-        \\    </ul>
-        \\</body>
-        \\</html>
-    ;
+    // Define the title for the page as root if target doesn't exist.
+    var title: []const u8 = undefined;
+    if (target.len == 0) {
+        title = "root";
+    } else {
+        title = target;
+    }
 
-    var buffer: [HTMLHead.len + 128]u8 = undefined;
-    var html = fmt.bufPrint(&buffer, HTMLHead, .{ dirPath, dirPath }) catch unreachable;
+    std.log.debug("TARGET {s}", .{target});
+
+    // Build the html to be sent for the directory listings
+    var buffer: [html.HTMLHEAD.len + 128]u8 = undefined;
+    var htmlBuilder = fmt.bufPrint(&buffer, html.HTMLHEAD, .{ title, title }) catch unreachable;
 
     const cwd = fs.cwd();
-    var dirIter = cwd.openIterableDir(dirPath, .{}) catch @panic("unhandled");
+    var dirIter = cwd.openIterableDir(filePath, .{}) catch unreachable;
     defer dirIter.close();
 
     var iterator = dirIter.iterate();
@@ -104,24 +104,24 @@ fn serveDirectory(response: *http.Server.Response, dirPath: []const u8, status: 
     while (try iterator.next()) |item| {
         // Just reuse the buffer
         var bufferi: [128]u8 = undefined;
-        const li = fmt.bufPrint(&bufferi, listItem, .{ item.name, item.name }) catch @panic("format buffer too small!");
-        const slice = [_][]const u8{ html, li };
-        html = mem.concat(allocator, u8, &slice) catch @panic("Cannot concat!");
+        const li = fmt.bufPrint(&bufferi, html.LISTITEM, .{ target, item.name, item.name }) catch @panic("format buffer too small!");
+        const slice = [_][]const u8{ htmlBuilder, li };
+        htmlBuilder = mem.concat(allocator, u8, &slice) catch @panic("Cannot concat!");
     }
 
-    const slice = [_][]const u8{ html, HTMLFoot };
-    html = mem.concat(allocator, u8, &slice) catch @panic("Cannot concat!");
+    const slice = [_][]const u8{ htmlBuilder, html.HTMLFOOT };
+    htmlBuilder = mem.concat(allocator, u8, &slice) catch @panic("Cannot concat!");
 
-    response.status = status;
-    response.transfer_encoding = .{ .content_length = html.len };
+    response.status = http.Status.ok;
+    response.transfer_encoding = .{ .content_length = htmlBuilder.len };
     try response.headers.append("connection", "close");
     try response.do();
 
-    try response.writeAll(html);
+    try response.writeAll(htmlBuilder);
     try response.finish();
 }
 
-pub fn serveFile(response: *http.Server.Response, filePath: []const u8, status: http.Status, allocator: mem.Allocator) !void {
+fn serveFile(response: *http.Server.Response, filePath: []const u8, status: http.Status, allocator: mem.Allocator) !void {
     const cwd = fs.cwd();
     const file = try cwd.openFile(filePath, .{});
     defer file.close();
@@ -133,14 +133,16 @@ pub fn serveFile(response: *http.Server.Response, filePath: []const u8, status: 
     try serverStatus(response, status);
 
     const reader = file.reader();
+
     const content = try reader.readAllAlloc(allocator, size);
+    defer allocator.free(content);
 
     try response.writer().writeAll(content);
 
     try response.finish();
 }
 
-pub fn serverStatus(response: *http.Server.Response, status: http.Status) !void {
+fn serverStatus(response: *http.Server.Response, status: http.Status) !void {
     response.status = status;
     try response.do();
 }
@@ -169,30 +171,11 @@ fn error404(response: *http.Server.Response, allocator: mem.Allocator) !void {
 }
 
 fn noDefault404(response: *http.Server.Response) void {
-    const noDefaultPage =
-        \\<!doctype html>
-        \\<html lang="en">
-        \\  <head>
-        \\    <title>No Default Route</title>
-        \\  </head>
-        \\  <body>
-        \\    <main>
-        \\       <div>
-        \\          <h1>404 Not Found</h1>
-        \\          <p>
-        \\            The file or directory could not be found.
-        \\          </p>
-        \\      </div>
-        \\    </main>
-        \\  </body>
-        \\</html>
-    ;
-
     response.status = http.Status.ok;
-    response.transfer_encoding = .{ .content_length = noDefaultPage.len };
+    response.transfer_encoding = .{ .content_length = html.NODEFAULT.len };
     response.headers.append("connection", "close") catch return;
     response.do() catch return;
 
-    response.writeAll(noDefaultPage) catch return;
+    response.writeAll(html.NODEFAULT) catch return;
     response.finish() catch return;
 }

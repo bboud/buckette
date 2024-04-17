@@ -3,59 +3,59 @@ const heap = std.heap;
 const http = std.http;
 const mem = std.mem;
 
-const print = std.debug.print;
+const config = @import("config.zig");
 
-const router = @import("router.zig");
-const index = @import("fileserver.zig").fileserver;
-const upload = @import("upload.zig").upload;
-
+//TODO: Graceful shutdown
 pub fn main() !void {
+    // Primary allocator for the while server.
     var gpa = heap.GeneralPurposeAllocator(.{}){};
     defer {
         const check = gpa.deinit();
         switch (check) {
-            heap.Check.ok => print("No mem lead detected", .{}),
-            heap.Check.leak => print("Mem leak!", .{}),
+            heap.Check.ok => std.log.debug("No mem lead detected!", .{}),
+            heap.Check.leak => std.log.debug("Mem leak!", .{}),
         }
     }
-
     var gpaAlloc = gpa.allocator();
+
+    // HTTP server initialization
     var server = http.Server.init(gpaAlloc, .{});
     defer server.deinit();
 
-    // This FBA is used as the allocator for a StringHashMap to be fast for route lookups
-    var buffer: [512]u8 = undefined;
-    var fbaAllocator = heap.FixedBufferAllocator.init(&buffer);
-    var r = router.Router.init(fbaAllocator.allocator());
-    defer r.deinit();
-    try setup(&r);
+    // Router initialization
+    var buffer: [1024]u8 = undefined;
+    var fba = heap.FixedBufferAllocator.init(&buffer);
+    var router = @import("router.zig").Router.init(fba.allocator());
+    defer router.deinit();
+    try @import("routes.zig").setup(&router);
 
-    const address = std.net.Address.parseIp4("127.0.0.1", 8080) catch unreachable;
+    // Bind do the address and listen
+    const address = std.net.Address.parseIp4(config.ADDRESS, config.PORT) catch unreachable;
     try server.listen(address);
+    std.log.debug("Listening Port: {}\n", .{address.getPort()});
 
-    print("Listening Port: {}\n", .{address.getPort()});
-
+    // Primary connection processing loop.
+    // 1) Accept the connection
+    // 2) Wait for the request to be completed
+    // 3) route the request to the correct handler
     while (true) {
         var response = server.accept(.{
             .allocator = gpaAlloc,
-        }) catch |err| switch (err) {
-            mem.Allocator.Error.OutOfMemory => break,
-            else => {
-                print("Unable to accept connection: {}", .{err});
-                continue;
-            },
+        }) catch |err| {
+            std.log.err("Unable to accept connection: {}", .{err});
+            continue;
         };
+
         defer response.deinit();
         defer _ = response.reset();
-        try response.wait();
 
-        // This route take an allocator for use in serving files and other things
+        response.wait() catch |err| {
+            std.log.err("Unable to complete wait for request: {}", .{err});
+            continue;
+        };
+
+        const target = response.request.target;
         // Errors are handling inside each route handler
-        r.route(&response, gpaAlloc);
+        router.route(target, &response, gpaAlloc);
     }
-}
-
-fn setup(r: *router.Router) !void {
-    try r.addRoute("/", index);
-    try r.addRoute("/upld", upload);
 }
